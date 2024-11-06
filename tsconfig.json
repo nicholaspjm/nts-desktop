@@ -1,0 +1,22 @@
+{
+	"include": ["client", "app", "types"],
+	"compilerOptions": {
+		"module": "esnext",
+		"target": "esnext",
+		"moduleResolution": "node",
+		"jsx": "preserve",
+		"jsxFactory": "h",
+		"jsxFragmentFactory": "Fragment",
+		"baseUrl": "./",
+		"noEmit": true,
+		"strict": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"allowSyntheticDefaultImports": true,
+		"paths": {
+			"~/*": ["./*"]
+		},
+		"plugins": [{ "name": "typescript-plugin-css-modules" }]
+	}
+}

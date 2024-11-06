@@ -1,0 +1,9 @@
+.slider {
+	display: flex;
+	height: 100vh;
+}
+
+.slide {
+	width: 100vw;
+	height: 100vh;
+}

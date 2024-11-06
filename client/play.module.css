@@ -1,0 +1,8 @@
+.play {
+	width: 16px;
+	height: 16px;
+	fill: black;
+	position: relative;
+	top: 2px;
+	cursor: pointer;
+}

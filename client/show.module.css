@@ -1,0 +1,117 @@
+.empty {
+	width: 100vw;
+	height: 100vh;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	text-align: center;
+	padding: 3em;
+	box-sizing: border-box;
+}
+
+.empty svg {
+	width: 24px;
+	height: 24px;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 2;
+}
+
+.show {
+	overflow-y: auto;
+	width: 100vw;
+	height: 100vh;
+}
+
+.top {
+	position: relative;
+	animation: enter 500ms;
+}
+
+@keyframes enter {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+.image {
+	object-fit: cover;
+	width: 100vw;
+	height: 100vh;
+}
+
+.footer {
+	position: absolute;
+	bottom: 1rem;
+	left: 0.5rem;
+	right: 0.5rem;
+	z-index: 10;
+}
+
+.name {
+	background: black;
+	font-size: 1.25em;
+	line-height: 1.3;
+	padding: 0.25rem 0.5rem;
+	box-decoration-break: clone;
+	font-weight: bold;
+	text-transform: uppercase;
+	-webkit-box-decoration-break: clone;
+}
+
+.location {
+	background: black;
+	font-size: 0.8rem;
+	font-weight: bold;
+	display: inline-block;
+	text-transform: uppercase;
+	padding: 0.1rem 0.3rem 0.05rem 0.3rem;
+	margin-bottom: 0.5rem;
+}
+
+.location:empty {
+	display: none;
+}
+
+.header {
+	position: absolute;
+	top: 0.5rem;
+	left: 0.5rem;
+	display: flex;
+}
+
+.date {
+	padding: 0.25rem 0.5rem;
+	background: black;
+	color: white;
+}
+
+.notracklist {
+	text-align: center;
+	padding: 0.5rem 0;
+	font-size: 0.75rem;
+}
+
+.nav {
+	position: relative;
+	top: 1rem;
+	font-size: 0.85em;
+}
+
+.nav button {
+	background: none;
+	border: none;
+	font: inherit;
+	color: inherit;
+	text-transform: inherit;
+	letter-spacing: inherit;
+	outline: none;
+	cursor: pointer;
+}
+
+.nav button:first-child {
+	margin-right: 1rem;
+}

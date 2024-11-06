@@ -1,0 +1,25 @@
+@font-face {
+	font-family: "UniversCondensed";
+	src: url("../font/UniversCondensed.woff2") format("woff2");
+}
+
+@font-face {
+	font-family: "UniversCondensed";
+	src: url("../font/UniversCondensed.bold.woff2") format("woff2");
+	font-weight: bold;
+}
+
+body {
+	font-family: "UniversCondensed", Arial;
+	background: black;
+	color: white;
+	padding: 0;
+	margin: 0;
+
+	line-height: 1.3em;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+
+	user-select: none;
+	overflow: hidden;
+}
