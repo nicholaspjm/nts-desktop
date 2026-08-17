@@ -13,6 +13,7 @@ import {
 	globalShortcut,
 	ipcMain,
 	nativeImage,
+	screen,
 	shell,
 } from "electron"
 import serve from "electron-serve"
@@ -83,7 +84,8 @@ export class NTSApplication {
 
 		globalShortcut.register("Control+N", () => this.toggle())
 
-		setTimeout(() => app.dock.hide(), 1500)
+		// app.dock only exists on macOS
+		setTimeout(() => app.dock?.hide(), 1500)
 		await this.liveTracks.init()
 		await this.loadClient()
 	}
@@ -142,11 +144,46 @@ export class NTSApplication {
 		const trayPos = this.tray.getBounds()
 		const windowPos = this.window.getBounds()
 
-		const yScale = process.platform === "darwin" ? 1 : 10
-		const x = Math.round(trayPos.x + trayPos.width / 2 - windowPos.width / 2)
-		const y = Math.round(trayPos.y + trayPos.height * yScale)
+		let x = Math.round(trayPos.x + trayPos.width / 2 - windowPos.width / 2)
+		let y: number
 
-		this.window.setPosition(x, y + 8, false)
+		if (process.platform === "darwin") {
+			y = Math.round(trayPos.y + trayPos.height) + 8
+		} else {
+			// Tray.getBounds() is unreliable on Windows, and returns junk when the
+			// icon is tucked into the overflow flyout rather than sitting on the
+			// taskbar itself. So don't anchor to it blindly. Use the work area of
+			// whichever display the cursor is on: that's the display the user just
+			// clicked the tray or pressed the shortcut on.
+			const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+			const { workArea: area, bounds } = display
+
+			// A work area inset from the top means the taskbar is up there.
+			const taskbarOnTop = area.y > bounds.y
+			y = taskbarOnTop
+				? area.y + 8
+				: area.y + area.height - windowPos.height - 8
+
+			// Only centre on the tray icon if its bounds look believable.
+			const trayIsSane =
+				trayPos.width > 0 &&
+				trayPos.x >= area.x &&
+				trayPos.x <= area.x + area.width
+			if (!trayIsSane) {
+				x = area.x + area.width - windowPos.width - 8
+			}
+
+			x = Math.min(
+				Math.max(x, area.x + 8),
+				area.x + area.width - windowPos.width - 8,
+			)
+			y = Math.min(
+				Math.max(y, area.y + 8),
+				area.y + area.height - windowPos.height - 8,
+			)
+		}
+
+		this.window.setPosition(x, y, false)
 		this.window.show()
 		this.window.focus()
 		this.liveTracks.subscribe()
@@ -299,19 +336,38 @@ function makeIcon(filename: string): NativeImage {
 	const original = nativeImage.createFromPath(filepath)
 	const size = original.getSize()
 	const ratio = size.width / size.height
-	const height = 18
+	const height = process.platform === "darwin" ? 18 : 16
 	const icon = original.resize({
 		height,
 		width: Math.round(height * ratio * 10) / 10,
 	})
-	icon.setTemplateImage(true)
-	return icon
+
+	if (process.platform === "darwin") {
+		icon.setTemplateImage(true)
+		return icon
+	}
+
+	// Template images are a macOS concept: the OS recolours them to suit the
+	// menubar. Windows does no such thing, so this black-on-transparent logo
+	// renders as black on a dark taskbar and is effectively invisible. Invert
+	// the colour channels to white, respecting premultiplied alpha so the
+	// antialiased edges don't blow out.
+	const bitmap = icon.toBitmap()
+	for (let i = 0; i < bitmap.length; i += 4) {
+		const alpha = bitmap[i + 3]
+		bitmap[i] = alpha - bitmap[i]
+		bitmap[i + 1] = alpha - bitmap[i + 1]
+		bitmap[i + 2] = alpha - bitmap[i + 2]
+	}
+
+	return nativeImage.createFromBitmap(bitmap, icon.getSize())
 }
 
 function makeTray(): Tray {
 	const icon = makeIcon(menubar)
 	const tray = new Tray(icon)
 	tray.setIgnoreDoubleClickEvents(true)
+	tray.setToolTip("NTS Desktop")
 	return tray
 }
 

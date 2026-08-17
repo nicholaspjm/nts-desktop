@@ -16,6 +16,13 @@ mac:
       arch:
         - universal
 
+win:
+  icon: logos/menu.png
+  target:
+    - target: nsis
+      arch:
+        - x64
+
 fileAssociations:
   ext: webloc
   role: Viewer

@@ -7,6 +7,18 @@
 	"author": "Romeo Van Snick <romeo@romeovansnick.be>",
 	"license": "MIT",
 	"repository": "https://github.com/romeovs/nts-desktop",
+	"scripts": {
+		"build": "node scripts/build.mjs",
+		"start": "npm run build && electron dist",
+		"dist": "npm run build && electron-builder build --win --publish=never"
+	},
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"@biomejs/biome",
+			"electron",
+			"esbuild"
+		]
+	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.4",
 		"@types/classnames": "^2.3.4",

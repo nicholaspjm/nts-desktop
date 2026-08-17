@@ -23,8 +23,15 @@ import * as credentials from "./credentials"
 
 const LIMIT = 15
 
-// @ts-expect-error
+// @ts-expect-error: injected at build time
 const config: FirebaseOptions = FIREBASE_CONFIG
+
+// False when built without the maintainer's git-crypt encrypted .env. Firebase
+// only powers the NTS Supporter live tracklist, so we still boot without it,
+// but we must not open a subscription: Firestore would retry the resulting
+// PERMISSION_DENIED indefinitely in the background.
+// @ts-expect-error: injected at build time
+const available: boolean = FIREBASE_AVAILABLE
 
 const app = initializeApp(config)
 const auth = getAuth(app)
@@ -93,6 +100,10 @@ export class NTSLiveTracks {
 	}
 
 	async init() {
+		if (!available) {
+			return
+		}
+
 		this.creds = await credentials.read()
 		if (!this.creds) {
 			return
@@ -108,6 +119,10 @@ export class NTSLiveTracks {
 	}
 
 	async subscribe() {
+		if (!available) {
+			return
+		}
+
 		const strm1 = await liveTracks(1, (err, res) => {
 			if (err) {
 				console.warn(err)
@@ -163,6 +178,12 @@ export class NTSLiveTracks {
 		_evt: IpcMainInvokeEvent,
 		data: { email: string; password: string },
 	) {
+		if (!available) {
+			throw new Error(
+				"Live tracklists are unavailable in this build: it was compiled without FIREBASE_CONFIG.",
+			)
+		}
+
 		const { email, password } = data
 
 		try {
