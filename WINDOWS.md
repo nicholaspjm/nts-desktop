@@ -20,6 +20,12 @@ To produce an installer in `bundle/`:
 npx pnpm@10 dist
 ```
 
+Upstream decides it is "production" only when running from a packaged `.asar`,
+so `electron dist` would try to load the Vite dev server and show a blank window
+if that server wasn't up. The built client is now served unless `NTS_DEV=1` is
+set. For hot-reload development, run `npx pnpm@10 exec vite` in one terminal and
+launch with `NTS_DEV=1` in another.
+
 ## Finding the app once it's running
 
 It's a tray app with no taskbar entry. Windows 11 hides new tray icons in the
@@ -59,6 +65,26 @@ Without that gate, Firestore retries `PERMISSION_DENIED` indefinitely in the
 background for as long as the app is open.
 
 Everything else, live streams included, works without it.
+
+## Playback reconnection
+
+The live streams are continuous Icecast-style connections with no manifest.
+Upstream's player is a bare `<audio>` element with no error handling, so when a
+CDN edge drops the connection, or the machine sleeps, or the network blips, the
+audio simply goes quiet and nothing retries. Often no `error` event is raised at
+all: the element just sits there with a clock that has stopped advancing.
+
+`client/player.tsx` now runs a watchdog that reconnects with exponential backoff
+(1s up to 30s), triggered by any of:
+
+- an `error` or `ended` event (a live stream should never end)
+- `currentTime` failing to advance for 10s while nominally playing, which is the
+  silent failure the events miss
+- the `online` event, which also skips the remaining backoff
+
+Each retry varies the URL so a dead connection isn't served back. Backoff resets
+as soon as the stream is confirmed advancing again, and the reconnect-induced
+`pause` is suppressed so it isn't misreported to the UI as the user stopping.
 
 ## Known limitations
 
