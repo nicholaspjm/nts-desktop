@@ -108,11 +108,17 @@
 }
 
 .brand {
-	padding: 0 18px 18px;
-	font-size: 26px;
-	font-weight: bold;
-	letter-spacing: 0.02em;
-	font-style: italic;
+	padding: 0 18px 20px;
+	display: flex;
+	align-items: center;
+}
+
+.brandLogo {
+	width: 46px;
+	height: auto;
+	display: block;
+	/* The shipped mark is black artwork, and this UI is not. */
+	filter: invert(1);
 }
 
 .navItem {
@@ -490,6 +496,81 @@
 	align-items: center;
 	gap: 16px;
 	margin-top: 6px;
+}
+
+/* Stream panel */
+
+.panel {
+	margin-top: 10px;
+	border-top: 1px solid #1e1e1e;
+	padding-top: 14px;
+}
+
+.panelHead {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 8px;
+}
+
+.panelHead .heading {
+	margin: 0;
+}
+
+.panelQuality {
+	font-size: 13px;
+	color: white;
+	letter-spacing: 0.04em;
+}
+
+.graph {
+	display: block;
+	width: 100%;
+	height: 52px;
+	background: #0d0d0d;
+	border: 1px solid #1c1c1c;
+}
+
+.graphLabel {
+	font-size: 11px;
+	color: #6a6a6a;
+	margin-top: 5px;
+	letter-spacing: 0.04em;
+}
+
+.stats {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+	gap: 10px 14px;
+	margin-top: 12px;
+}
+
+.stat {
+	min-width: 0;
+}
+
+.statLabel {
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.11em;
+	color: #6a6a6a;
+}
+
+.statValue {
+	font-size: 15px;
+	color: white;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.panelFoot {
+	margin-top: 10px;
+	font-size: 11px;
+	color: #5e5e5e;
+	overflow-wrap: anywhere;
 }
 
 @media (max-width: 900px) {

@@ -4,6 +4,7 @@ import bplist from "bplist-parser"
 import {
 	BrowserWindow,
 	type IpcMainEvent,
+	type IpcMainInvokeEvent,
 	Menu,
 	type NativeImage,
 	Notification,
@@ -13,6 +14,7 @@ import {
 	globalShortcut,
 	ipcMain,
 	nativeImage,
+	net,
 	shell,
 } from "electron"
 import serve from "electron-serve"
@@ -35,6 +37,7 @@ let quitting = false
 
 export class NTSApplication {
 	window: BrowserWindow
+	tracklist: BrowserWindow | null = null
 	tray: Tray
 	evts: EventEmitter
 	production: boolean
@@ -96,6 +99,14 @@ export class NTSApplication {
 				this.close()
 			}
 		})
+
+		// Read the broadcast parameters from the stream's ICY headers. This has to
+		// happen in the main process: the relay's 302 carries no CORS headers, so
+		// the renderer cannot read them, and requesting them from there in CORS
+		// mode breaks the audio load outright.
+		ipcMain.handle("stream-info", (_evt: IpcMainInvokeEvent, url: string) =>
+			readStreamInfo(url),
+		)
 
 		ipcMain.on("schedule", () => this.openSchedule())
 		ipcMain.on("reload", () => this.reload())
@@ -258,7 +269,38 @@ export class NTSApplication {
 	}
 
 	openTracklist(channel: number | string) {
-		shell.openExternal(`https://www.nts.live/live-tracklist/${channel}`)
+		const url = `https://www.nts.live/live-tracklist/${channel}`
+
+		if (this.tracklist && !this.tracklist.isDestroyed()) {
+			this.tracklist.loadURL(url)
+			this.tracklist.show()
+			this.tracklist.focus()
+			return
+		}
+
+		// Kept inside the app rather than thrown at the default browser. This
+		// loads nts.live directly, so it gets no preload and stays sandboxed.
+		const window = new BrowserWindow({
+			width: 460,
+			height: 760,
+			parent: this.window,
+			title: "NTS Tracklist",
+			backgroundColor: "#000000",
+			autoHideMenuBar: true,
+			webPreferences: {
+				nodeIntegration: false,
+				contextIsolation: true,
+				sandbox: true,
+			},
+		})
+
+		window.setMenu(null)
+		window.loadURL(url)
+		window.on("closed", () => {
+			this.tracklist = null
+		})
+
+		this.tracklist = window
 	}
 
 	openMyNTS() {
@@ -292,6 +334,79 @@ export class NTSApplication {
 			...prefs,
 		})
 	}
+}
+
+export type StreamInfo = {
+	bitrate: number | null
+	sampleRate: number | null
+	codec: string
+	station: string
+	edge: string
+}
+
+function header(value: string | string[] | undefined): string {
+	if (Array.isArray(value)) {
+		return value[0] ?? ""
+	}
+	return value ?? ""
+}
+
+function numeric(value: string | string[] | undefined): number | null {
+	const parsed = Number(header(value))
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+function codecName(contentType: string): string {
+	const type = contentType.split(";")[0].trim().toLowerCase()
+	if (type === "audio/mpeg" || type === "audio/mp3") {
+		return "MP3"
+	}
+	if (type === "audio/aac" || type === "audio/aacp" || type === "audio/mp4") {
+		return "AAC"
+	}
+	if (type === "audio/ogg") {
+		return "Ogg Vorbis"
+	}
+	return type
+}
+
+function readStreamInfo(url: string): Promise<StreamInfo | null> {
+	return new Promise(function (resolve) {
+		let edge = url
+		const request = net.request({ url, method: "GET" })
+		request.setHeader("Icy-MetaData", "1")
+
+		// Never leave a hung request holding a live audio connection open.
+		const timer = setTimeout(function () {
+			request.abort()
+			resolve(null)
+		}, 8000)
+
+		request.on("redirect", function (_status: number, _method: string, to: string) {
+			edge = to
+		})
+
+		request.on("response", function (response) {
+			clearTimeout(timer)
+			const headers = response.headers
+			resolve({
+				bitrate: numeric(headers["icy-br"]),
+				sampleRate: numeric(headers["icy-samplerate"]),
+				codec: codecName(header(headers["content-type"])),
+				station: header(headers["icy-name"]),
+				edge: new URL(edge).host,
+			})
+			// Headers were the point; don't pull the audio down a second time.
+			request.abort()
+		})
+
+		request.on("error", function () {
+			clearTimeout(timer)
+			resolve(null)
+		})
+
+		request.end()
+	})
 }
 
 function makeWindow(): BrowserWindow {

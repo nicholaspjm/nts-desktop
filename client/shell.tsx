@@ -1,8 +1,11 @@
 import classnames from "classnames"
 import { useEffect, useRef, useState } from "react"
 
+import logo from "../logos/menu.svg"
+
 import type { ChannelInfo, Info, ShowInfo } from "./lib/live"
 import type { Mixtape } from "./lib/mixtapes"
+import type { StreamHealth, StreamInfo } from "./lib/stream-info"
 import type { PlayerStatus } from "./player"
 
 import css from "./shell.module.css"
@@ -189,7 +192,9 @@ export function Nav(props: NavProps) {
 
 	return (
 		<nav className={css.nav}>
-			<div className={css.brand}>NTS</div>
+			<div className={css.brand}>
+				<img className={css.brandLogo} src={logo} alt="NTS" />
+			</div>
 			{items.map(function (item) {
 				return (
 					<button
@@ -427,8 +432,151 @@ function StatusDot(props: { status: PlayerStatus }) {
 	)
 }
 
+type PanelProps = {
+	info: StreamInfo | null
+	loading: boolean
+	health: StreamHealth
+	status: PlayerStatus
+}
+
+function HealthGraph(props: { health: StreamHealth }) {
+	const { health } = props
+	const canvas = useRef<HTMLCanvasElement | null>(null)
+
+	useEffect(
+		function () {
+			const el = canvas.current
+			if (!el) {
+				return
+			}
+
+			const ctx = el.getContext("2d")
+			if (!ctx) {
+				return
+			}
+
+			const ratio = window.devicePixelRatio || 1
+			const width = el.clientWidth
+			const height = el.clientHeight
+			el.width = Math.round(width * ratio)
+			el.height = Math.round(height * ratio)
+			ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
+			ctx.clearRect(0, 0, width, height)
+
+			const points = health.history
+			if (points.length === 0) {
+				return
+			}
+
+			// Scale to the largest buffer seen, with a floor so a healthy flat line
+			// doesn't fill the whole graph and look alarming.
+			const peak = Math.max(4, ...points.map((p) => p.buffered))
+			const step = width / Math.max(1, points.length - 1)
+
+			ctx.beginPath()
+			ctx.moveTo(0, height)
+			points.forEach(function (point, i) {
+				const x = i * step
+				const y = height - (point.buffered / peak) * (height - 2)
+				ctx.lineTo(x, y)
+			})
+			ctx.lineTo((points.length - 1) * step, height)
+			ctx.closePath()
+			ctx.fillStyle = "rgba(230, 0, 45, 0.18)"
+			ctx.fill()
+
+			ctx.beginPath()
+			points.forEach(function (point, i) {
+				const x = i * step
+				const y = height - (point.buffered / peak) * (height - 2)
+				if (i === 0) {
+					ctx.moveTo(x, y)
+				} else {
+					ctx.lineTo(x, y)
+				}
+			})
+			ctx.strokeStyle = "#e6002d"
+			ctx.lineWidth = 1.5
+			ctx.stroke()
+
+			// Mark every moment the watchdog was reconnecting.
+			ctx.fillStyle = "rgba(255, 176, 46, 0.85)"
+			points.forEach(function (point, i) {
+				if (point.reconnecting) {
+					ctx.fillRect(i * step - 1, 0, 2, height)
+				}
+			})
+		},
+		[health],
+	)
+
+	return <canvas className={css.graph} ref={canvas} />
+}
+
+function Stat(props: { label: string; value: string }) {
+	return (
+		<div className={css.stat}>
+			<div className={css.statLabel}>{props.label}</div>
+			<div className={css.statValue}>{props.value}</div>
+		</div>
+	)
+}
+
+export function StreamPanel(props: PanelProps) {
+	const { info, loading, health, status } = props
+
+	const quality =
+		info?.bitrate != null
+			? `${info.bitrate} kbps ${info.codec}`.trim()
+			: loading
+				? "Reading…"
+				: "Unknown"
+
+	const minutes = Math.floor(health.uptime / 60)
+	const seconds = health.uptime % 60
+
+	return (
+		<section className={css.panel}>
+			<div className={css.panelHead}>
+				<span className={css.heading}>Stream</span>
+				<span className={css.panelQuality}>{quality}</span>
+			</div>
+
+			<HealthGraph health={health} />
+			<div className={css.graphLabel}>
+				Buffer ahead, last {Math.round((health.history.length * 500) / 1000)}s
+			</div>
+
+			<div className={css.stats}>
+				<Stat label="Buffered" value={`${health.buffered.toFixed(1)}s`} />
+				<Stat
+					label="Sample rate"
+					value={info?.sampleRate ? `${(info.sampleRate / 1000).toFixed(1)} kHz` : "-"}
+				/>
+				<Stat label="Codec" value={info?.codec || "-"} />
+				<Stat label="State" value={STATUS_LABEL[status]} />
+				<Stat
+					label="Uptime"
+					value={minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`}
+				/>
+				<Stat label="Reconnects" value={String(health.reconnects)} />
+			</div>
+
+			{info?.edge ? (
+				<div className={css.panelFoot}>
+					{info.station ? `${info.station} · ` : ""}
+					{info.edge}
+				</div>
+			) : null}
+		</section>
+	)
+}
+
 type FullProps = {
 	now: NowPlaying
+	info: StreamInfo | null
+	infoLoading: boolean
+	health: StreamHealth
 	status: PlayerStatus
 	playing: boolean
 	volume: number
@@ -438,7 +586,18 @@ type FullProps = {
 }
 
 export function FullScreen(props: FullProps) {
-	const { now, status, playing, volume, onToggle, onVolume, onClose } = props
+	const {
+		now,
+		info,
+		infoLoading,
+		health,
+		status,
+		playing,
+		volume,
+		onToggle,
+		onVolume,
+		onClose,
+	} = props
 
 	useEffect(
 		function () {
@@ -520,6 +679,13 @@ export function FullScreen(props: FullProps) {
 							onChange={(e) => onVolume(Number(e.target.value))}
 						/>
 					</div>
+
+					<StreamPanel
+						info={info}
+						loading={infoLoading}
+						health={health}
+						status={status}
+					/>
 				</div>
 			</div>
 		</div>

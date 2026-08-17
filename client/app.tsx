@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import "./global.css"
 
@@ -8,6 +8,7 @@ import { electron } from "./electron"
 import { useLiveInfo } from "./lib/live"
 import { useMixtapes } from "./lib/mixtapes"
 import { usePreferences } from "./lib/preferences"
+import { useStreamHealth, useStreamInfo } from "./lib/stream-info"
 import { useEvent } from "./lib/use-event"
 import { useKeydown } from "./lib/use-keydown"
 import { useOffline } from "./lib/use-offline"
@@ -74,6 +75,7 @@ export function NTS() {
 	const [archivePlaying, setArchivePlaying] = useState(false)
 	const [isShowingHelp, setIsShowingHelp] = useState(false)
 	const [isFullScreen, setIsFullScreen] = useState(false)
+	const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null)
 
 	const { preferences, updatePreferences } = usePreferences()
 	const isOffline = useOffline()
@@ -207,6 +209,10 @@ export function NTS() {
 		electron.send("window", action)
 	}, [])
 
+	const streamInfo = useStreamInfo(src)
+	// Only a genuine reconnect counts. The first connect is not a recovery.
+	const health = useStreamHealth(audioEl, Boolean(active), status === "reconnecting")
+
 	const now = useMemo(
 		function (): NowPlaying {
 			if (!active) {
@@ -291,6 +297,9 @@ export function NTS() {
 			{isFullScreen ? (
 				<FullScreen
 					now={now}
+					info={streamInfo.info}
+					infoLoading={streamInfo.loading}
+					health={health}
 					status={status}
 					playing={Boolean(active)}
 					volume={preferences.volume}
@@ -306,6 +315,7 @@ export function NTS() {
 				onPlay={() => {}}
 				onStop={() => {}}
 				onStatus={setStatus}
+				onElement={setAudioEl}
 				volume={preferences.volume}
 			/>
 

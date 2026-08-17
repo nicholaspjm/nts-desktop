@@ -13,6 +13,7 @@ type Props = {
 	onPlay: () => void
 	onStop: () => void
 	onStatus?: (status: PlayerStatus) => void
+	onElement?: (element: HTMLAudioElement | null) => void
 	volume?: number
 }
 
@@ -40,9 +41,18 @@ function reconnectURL(src: string, attempt: number): string {
 }
 
 export function Player(props: Props) {
-	const { src, playing, onStop, onPlay, onStatus, volume = 1 } = props
+	const { src, playing, onStop, onPlay, onStatus, onElement, volume = 1 } = props
 
 	const ref = useRef<HTMLAudioElement | null>(null)
+
+	// Hand the element up so it can be metered. Web Audio needs the element
+	// itself, and createMediaElementSource may only ever be called once on it.
+	const elementHandler = useRef(onElement)
+	elementHandler.current = onElement
+	const attach = useCallback(function (element: HTMLAudioElement | null) {
+		ref.current = element
+		elementHandler.current?.(element)
+	}, [])
 
 	// Held in a ref so changing the callback doesn't tear down the watchdog.
 	const statusHandler = useRef(onStatus)
@@ -262,5 +272,9 @@ export function Player(props: Props) {
 		[clearRetry],
 	)
 
-	return <audio src={src ?? undefined} ref={ref} />
+	// Deliberately no crossOrigin: setting it makes the request CORS-mode, and
+	// the relay's 302 carries no Access-Control-Allow-Origin, so the load fails
+	// outright. That also rules out Web Audio metering of these streams, since
+	// analysing cross-origin media requires exactly that attribute.
+	return <audio src={src ?? undefined} ref={attach} />
 }
