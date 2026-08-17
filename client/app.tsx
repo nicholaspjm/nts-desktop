@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 import "./global.css"
 
-import { type Stream, streams } from "~/lib/stream"
+import { streams } from "~/lib/stream"
 
 import { electron } from "./electron"
 import { useLiveInfo } from "./lib/live"
-import { useLiveTracks } from "./lib/live-tracks"
+import { useMixtapes } from "./lib/mixtapes"
 import { usePreferences } from "./lib/preferences"
 import { useEvent } from "./lib/use-event"
 import { useKeydown } from "./lib/use-keydown"
@@ -14,34 +14,27 @@ import { useOffline } from "./lib/use-offline"
 
 import { useMetadata } from "./metadata"
 
-import type { ShowInfo } from "../app/show"
-import { Arrow } from "./arrow"
-import { Channel as ChannelCard } from "./channel"
-import { Chat } from "./chat"
+import type { ShowInfo as ArchiveShow } from "../app/show"
 import { Help } from "./help"
 import { Login } from "./login"
 import { Mixcloud } from "./mixcloud"
 import { Notifications } from "./notifications"
 import { Offline } from "./offline"
-import { Player } from "./player"
-import { Show } from "./show"
-import { Slide, Slider } from "./slider"
+import { Player, type PlayerStatus } from "./player"
+import {
+	LiveView,
+	MixtapesView,
+	Nav,
+	NowPlayingBar,
+	ScheduleView,
+	type Source,
+	type View,
+	sameSource,
+} from "./shell"
 import { Soundcloud } from "./soundcloud"
 import { Splash } from "./splash"
-import { Tracklist } from "./tracklist"
-import { Volume } from "./volume"
 
-import css from "./app.module.css"
-
-type Channel = Stream | "show"
-
-const channelToIndex: Record<Channel, number> = {
-	1: 0,
-	2: 1,
-	show: 2,
-}
-
-const indexToChannel: Channel[] = [1, 2, "show"]
+import css from "./shell.module.css"
 
 export function App() {
 	const [route, setRoute] = useState<"app" | "login">("app")
@@ -63,245 +56,210 @@ export function App() {
 }
 
 export function NTS() {
-	const [show, setShow] = useState<ShowInfo | null>(null)
-	const { preferences, updatePreferences } = usePreferences()
+	const [view, setView] = useState<View>("live")
 
-	const [index, setIndex] = useState<number>(0)
-	const [playing, setPlaying] = useState<Channel | null>(null)
-	const [isOpen, setIsOpen] = useState(document.hasFocus())
-	const [isShowingHelp, setIsShowingHelp] = useState(false)
-	const [duration, setDuration] = useState(0)
+	// The single source the audio pipeline is pointed at. null means stopped,
+	// which keeps "what is selected" and "is it playing" from drifting apart.
+	const [active, setActive] = useState<Source | null>(null)
+	const [status, setStatus] = useState<PlayerStatus>("idle")
+
+	const [show, setShow] = useState<ArchiveShow | null>(null)
 	const [position, setPosition] = useState(0)
 	const [looped, setLooped] = useState(0)
+	const [archivePlaying, setArchivePlaying] = useState(false)
+	const [isShowingHelp, setIsShowingHelp] = useState(false)
+
+	const { preferences, updatePreferences } = usePreferences()
 	const isOffline = useOffline()
 	const live = useLiveInfo({ skip: isOffline })
-	useMetadata(playing, show, live)
+	const mix = useMixtapes()
+
+	const channel = active?.kind === "channel" ? active.id : null
+	useMetadata(archivePlaying ? "show" : channel, show, live)
+
+	const mixtape = useMemo(
+		function () {
+			if (active?.kind !== "mixtape") {
+				return null
+			}
+			return mix.data.find((m) => m.alias === active.alias) ?? null
+		},
+		[active, mix.data],
+	)
+
+	// The URL handed to the single <Player>. Switching this reconnects.
+	const src = useMemo(
+		function () {
+			if (!active) {
+				return null
+			}
+			if (active.kind === "channel") {
+				return streams[active.id]
+			}
+			return mixtape?.stream ?? null
+		},
+		[active, mixtape],
+	)
+
+	const play = useCallback(
+		function (source: Source) {
+			if (isOffline) {
+				return
+			}
+			setArchivePlaying(false)
+			setActive(source)
+		},
+		[isOffline],
+	)
+
+	const stop = useCallback(function () {
+		setActive(null)
+	}, [])
+
+	const toggle = useCallback(
+		function () {
+			if (active) {
+				stop()
+				return
+			}
+			play({ kind: "channel", id: 1 })
+		},
+		[active, play, stop],
+	)
+
+	const toggleChannel = useCallback(
+		function (id: 1 | 2) {
+			if (sameSource(active, { kind: "channel", id })) {
+				stop()
+				return
+			}
+			play({ kind: "channel", id })
+		},
+		[active, play, stop],
+	)
 
 	const setVolume = useCallback(
-		function (fn: (volume: number) => number) {
-			updatePreferences((prefs) => ({ ...prefs, volume: fn(prefs.volume) }))
+		function (volume: number) {
+			updatePreferences((prefs) => ({ ...prefs, volume }))
 		},
 		[updatePreferences],
 	)
 
-	const tracks1 = useLiveTracks(1)
-	const tracks2 = useLiveTracks(2)
-	const currentTracks = playing === 1 ? tracks1 : tracks2
+	const nudgeVolume = useCallback(
+		function (delta: number) {
+			updatePreferences((prefs) => ({
+				...prefs,
+				volume: clamp(0, 1, prefs.volume + delta),
+			}))
+		},
+		[updatePreferences],
+	)
 
-	const next = useCallback(function () {
-		setIndex((idx) => (idx + 1) % 3)
-	}, [])
-
-	const prev = useCallback(function () {
-		setIndex((idx) => (3 + idx - 1) % 3)
-	}, [])
-
-	const togglePlaying = useCallback(
+	// Drives the tray icon in the main process.
+	useEffect(
 		function () {
-			if (isOffline) {
-				return
-			}
-
-			setPlaying((playing) => (playing ? null : indexToChannel[index]))
+			electron.send("playing", channel ?? (active ? "mixtape" : null))
 		},
-		[index, isOffline],
+		[channel, active],
 	)
-
-	const stop = useCallback(function (channel: Channel) {
-		setPlaying((curr) => (curr === channel ? null : curr))
-	}, [])
-
-	const stopAll = useCallback(function () {
-		setPlaying(null)
-	}, [])
-
-	const seek = useCallback(
-		function (pos: number) {
-			setPosition(pos)
-			if (pos < position) {
-				setLooped((x) => x + 1)
-			}
-		},
-		[position],
-	)
-
-	const close = useCallback(function () {
-		electron.send("close")
-	}, [])
 
 	useEffect(
 		function () {
-			electron.send("playing", playing)
+			if (isOffline) {
+				setActive(null)
+			}
 		},
-		[playing],
+		[isOffline],
 	)
 
-	const increaseVolume = useCallback(
-		function () {
-			setVolume((v: number): number => clamp(0, 1, v + 0.1))
-		},
-		[setVolume],
-	)
-
-	const decreaseVolume = useCallback(
-		function () {
-			setVolume((v: number): number => clamp(0, 1, v - 0.1))
-		},
-		[setVolume],
-	)
-
-	useKeydown("ArrowRight", next)
-	useKeydown("ArrowLeft", prev)
+	useKeydown(" ", toggle, [toggle])
+	useKeydown("1", () => toggleChannel(1), [toggleChannel])
+	useKeydown("2", () => toggleChannel(2), [toggleChannel])
 	useKeydown("?", () => setIsShowingHelp((x) => !x))
-	useKeydown(" ", togglePlaying, [playing, index])
-	useKeydown("Escape", close)
-	useKeydown("t", () => electron.send("tracklist", indexToChannel[index]), [index])
-	useKeydown("c", () => electron.send("chat", indexToChannel[index]), [index])
-	useKeydown("1", () => setPlaying(playing === 1 ? null : 1), [playing])
-	useKeydown("2", () => setPlaying(playing === 2 ? null : 2), [playing])
-	useKeydown("+", increaseVolume)
-	useKeydown("-", decreaseVolume)
-	useKeydown("ArrowUp", increaseVolume)
-	useKeydown("ArrowDown", decreaseVolume)
+	useKeydown("+", () => nudgeVolume(0.1), [nudgeVolume])
+	useKeydown("-", () => nudgeVolume(-0.1), [nudgeVolume])
+	useKeydown("ArrowUp", () => nudgeVolume(0.1), [nudgeVolume])
+	useKeydown("ArrowDown", () => nudgeVolume(-0.1), [nudgeVolume])
 
-	useEvent("open-show", async function (show: ShowInfo) {
-		setShow(show)
-		setPlaying("show")
-		setIndex(channelToIndex.show)
+	useEvent("open-show", async function (next: ArchiveShow) {
+		setShow(next)
+		setActive(null)
+		setArchivePlaying(true)
 		setPosition(0)
 		setLooped(0)
 	})
 
-	useEvent("open", async function () {
-		setIsOpen(true)
-	})
+	const handleTracklist = useCallback(function (id: 1 | 2) {
+		electron.send("tracklist", id)
+	}, [])
 
-	useEvent(
-		"close",
+	const handleChat = useCallback(
 		function () {
-			setIsOpen(false)
-
-			if (!playing) {
-				return
-			}
-
-			// Move the slider to the item that is currently playing
-			const idx = channelToIndex[playing]
-			setIndex(idx)
+			electron.send("chat", channel ?? 1)
 		},
-		[playing],
+		[channel],
 	)
 
-	useEffect(
-		function () {
-			if (isOffline) {
-				stopAll()
-			}
-		},
-		[isOffline, stopAll],
-	)
-
-	const handleShowTracklist = useCallback(function () {
-		const all = document.querySelectorAll("[data-show]")
-		for (const el of all) {
-			el.scrollTo({
-				top: 220,
-				behavior: "smooth",
-			})
-		}
-	}, [])
-
-	const handleShowPlay = useCallback(function () {
-		setPlaying("show")
-	}, [])
-
-	const handleShowStop = useCallback(
-		function () {
-			stop("show")
-		},
-		[stop],
-	)
-
-	const handleShowLoad = useCallback(function (dur: number) {
-		setDuration(Math.round(dur))
-	}, [])
-
-	const handleShowProgress = useCallback(function (pos: number) {
-		setPosition(Math.round(pos))
-	}, [])
+	const nowTitle = title(active, live.data, mixtape?.title)
+	const nowSubtitle = subtitle(active, live.data, mixtape?.subtitle)
+	const nowImage = image(active, live.data, mixtape?.image)
 
 	return (
 		<>
 			<Splash hide={!live.loading} />
-			<Slider index={index} animate={isOpen}>
-				<Slide>
-					<ChannelCard
-						info={live.data?.channel1}
-						channel={1}
-						playing={playing === 1}
-						onPlay={() => setPlaying(1)}
-						onStop={stopAll}
-						tracks={tracks1}
-					/>
-				</Slide>
-				<Slide>
-					<ChannelCard
-						info={live.data?.channel2}
-						channel={2}
-						playing={playing === 2}
-						onPlay={() => setPlaying(2)}
-						onStop={stopAll}
-						tracks={tracks2}
-					/>
-				</Slide>
-				<Slide>
-					<Show
-						show={show}
-						onPlay={() => setPlaying("show")}
-						onStop={stopAll}
-						onSeek={seek}
-						playing={playing === "show"}
-						duration={duration}
-						position={position}
-					/>
-				</Slide>
-			</Slider>
-			<button type="button" onClick={prev} className={css.prev}>
-				<Arrow direction="left" />
-			</button>
-			<button type="button" onClick={next} className={css.next}>
-				<Arrow direction="right" />
-			</button>
-			<Tracklist
-				channel={indexToChannel[index]}
-				hasShow={Boolean(show)}
-				onShowTracklist={handleShowTracklist}
-				hasTracks={currentTracks.length > 0}
-			/>
-			<Chat channel={indexToChannel[index]} />
+			<div className={css.shell}>
+				<Nav view={view} onView={setView} onChat={handleChat} />
+				<main className={css.content}>
+					{view === "live" ? (
+						<LiveView
+							live={live.data}
+							source={active}
+							onPlay={play}
+							onStop={stop}
+							onTracklist={handleTracklist}
+						/>
+					) : null}
+					{view === "mixtapes" ? (
+						<MixtapesView
+							mixtapes={mix.data}
+							loading={mix.loading}
+							source={active}
+							onPlay={play}
+							onStop={stop}
+						/>
+					) : null}
+					{view === "schedule" ? <ScheduleView live={live.data} /> : null}
+				</main>
+				<NowPlayingBar
+					title={nowTitle}
+					subtitle={nowSubtitle}
+					image={nowImage}
+					status={status}
+					playing={Boolean(active)}
+					volume={preferences.volume}
+					onToggle={toggle}
+					onVolume={setVolume}
+				/>
+			</div>
+
 			<Player
-				src={streams[1]}
-				playing={playing === 1}
-				onPlay={() => setPlaying(1)}
-				onStop={() => stop(1)}
+				src={src}
+				playing={Boolean(active)}
+				onPlay={() => {}}
+				onStop={() => {}}
+				onStatus={setStatus}
 				volume={preferences.volume}
 			/>
-			<Player
-				src={streams[2]}
-				playing={playing === 2}
-				onPlay={() => setPlaying(2)}
-				onStop={() => stop(2)}
-				volume={preferences.volume}
-			/>
+
 			{show?.source?.source === "mixcloud" && (
 				<Mixcloud
 					key={`${show?.source?.url}_${looped}_mixcloud`}
 					show={show}
-					playing={playing === "show"}
-					onPlay={handleShowPlay}
-					onStop={handleShowStop}
-					onLoad={handleShowLoad}
-					onProgress={handleShowProgress}
+					playing={archivePlaying}
+					onPlay={() => setArchivePlaying(true)}
+					onStop={() => setArchivePlaying(false)}
+					onLoad={() => {}}
+					onProgress={(pos: number) => setPosition(Math.round(pos))}
 					position={position}
 					volume={preferences.volume}
 				/>
@@ -310,20 +268,66 @@ export function NTS() {
 				<Soundcloud
 					key={`${show?.source?.url}_soundcloud`}
 					show={show}
-					playing={playing === "show"}
-					onPlay={handleShowPlay}
-					onStop={handleShowStop}
-					onLoad={handleShowLoad}
-					onProgress={handleShowProgress}
+					playing={archivePlaying}
+					onPlay={() => setArchivePlaying(true)}
+					onStop={() => setArchivePlaying(false)}
+					onLoad={() => {}}
+					onProgress={(pos: number) => setPosition(Math.round(pos))}
 					position={position}
 					volume={preferences.volume}
 				/>
 			)}
+
 			<Offline hide={!isOffline} />
 			<Help hide={!isShowingHelp} onHide={() => setIsShowingHelp(false)} />
-			<Volume volume={preferences.volume} />
 		</>
 	)
+}
+
+function title(
+	active: Source | null,
+	live: ReturnType<typeof useLiveInfo>["data"],
+	mixtapeTitle: string | undefined,
+): string {
+	if (!active) {
+		return "Nothing playing"
+	}
+	if (active.kind === "mixtape") {
+		return mixtapeTitle ?? "Mixtape"
+	}
+	const channel = active.id === 1 ? live?.channel1 : live?.channel2
+	return channel?.now.name ?? `Channel ${active.id}`
+}
+
+function subtitle(
+	active: Source | null,
+	live: ReturnType<typeof useLiveInfo>["data"],
+	mixtapeSubtitle: string | undefined,
+): string {
+	if (!active) {
+		return "Pick a channel or a mixtape"
+	}
+	if (active.kind === "mixtape") {
+		return mixtapeSubtitle ?? "Infinite Mixtape"
+	}
+	const channel = active.id === 1 ? live?.channel1 : live?.channel2
+	const location = channel?.now.location
+	return location ? `NTS ${active.id} - ${location}` : `NTS ${active.id}`
+}
+
+function image(
+	active: Source | null,
+	live: ReturnType<typeof useLiveInfo>["data"],
+	mixtapeImage: string | undefined,
+): string {
+	if (!active) {
+		return ""
+	}
+	if (active.kind === "mixtape") {
+		return mixtapeImage ?? ""
+	}
+	const channel = active.id === 1 ? live?.channel1 : live?.channel2
+	return channel?.now.image ?? ""
 }
 
 function clamp(min: number, max: number, number: number): number {

@@ -13,7 +13,6 @@ import {
 	globalShortcut,
 	ipcMain,
 	nativeImage,
-	screen,
 	shell,
 } from "electron"
 import serve from "electron-serve"
@@ -29,6 +28,10 @@ import menubarTwo from "../logos/menu-two.png"
 import menubar from "../logos/menu.png"
 
 const loadURL = serve({ directory: "client" })
+
+// Closing the window normally just hides it so playback survives. This flips
+// once the user genuinely quits, letting the window close for real.
+let quitting = false
 
 export class NTSApplication {
 	window: BrowserWindow
@@ -79,15 +82,20 @@ export class NTSApplication {
 		app.on("open-file", (_evt: IpcMainEvent, filename: string) =>
 			this.openFile(filename),
 		)
+		app.on("before-quit", () => {
+			quitting = true
+		})
 		app.on("will-quit", () => globalShortcut.unregisterAll())
 		app.on("activate", () => this.open())
 
 		globalShortcut.register("Control+N", () => this.toggle())
 
-		// app.dock only exists on macOS
-		setTimeout(() => app.dock?.hide(), 1500)
 		await this.liveTracks.init()
 		await this.loadClient()
+
+		// A real app window, so show it on launch rather than waiting for a click
+		// on a tray icon Windows tends to bury in the overflow flyout anyway.
+		this.open()
 	}
 
 	login() {
@@ -114,12 +122,6 @@ export class NTSApplication {
 		this.liveTracks.unsubscribe?.()
 	}
 
-	handleBlur() {
-		if (!this.window.webContents.isDevToolsOpened()) {
-			this.close()
-		}
-	}
-
 	handlePlaying(_evt: IpcMainEvent, channel: 1 | 2 | string | null) {
 		if (channel === 1 || channel === 2) {
 			this.setIcon(channel)
@@ -141,55 +143,17 @@ export class NTSApplication {
 	open() {
 		this.window.webContents.send("open")
 
-		const trayPos = this.tray.getBounds()
-		const windowPos = this.window.getBounds()
-
-		let x = Math.round(trayPos.x + trayPos.width / 2 - windowPos.width / 2)
-		let y: number
-
-		if (process.platform === "darwin") {
-			y = Math.round(trayPos.y + trayPos.height) + 8
-		} else {
-			// Tray.getBounds() is unreliable on Windows, and returns junk when the
-			// icon is tucked into the overflow flyout rather than sitting on the
-			// taskbar itself. So don't anchor to it blindly. Use the work area of
-			// whichever display the cursor is on: that's the display the user just
-			// clicked the tray or pressed the shortcut on.
-			const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
-			const { workArea: area, bounds } = display
-
-			// A work area inset from the top means the taskbar is up there.
-			const taskbarOnTop = area.y > bounds.y
-			y = taskbarOnTop
-				? area.y + 8
-				: area.y + area.height - windowPos.height - 8
-
-			// Only centre on the tray icon if its bounds look believable.
-			const trayIsSane =
-				trayPos.width > 0 &&
-				trayPos.x >= area.x &&
-				trayPos.x <= area.x + area.width
-			if (!trayIsSane) {
-				x = area.x + area.width - windowPos.width - 8
-			}
-
-			x = Math.min(
-				Math.max(x, area.x + 8),
-				area.x + area.width - windowPos.width - 8,
-			)
-			y = Math.min(
-				Math.max(y, area.y + 8),
-				area.y + area.height - windowPos.height - 8,
-			)
+		// This is an ordinary application window now, so it keeps whatever size
+		// and position the user left it at. No tray-relative placement, which was
+		// never reliable across displays running at different scale factors.
+		if (this.window.isMinimized()) {
+			this.window.restore()
 		}
 
-		this.window.setPosition(x, y, false)
 		this.window.show()
 		this.window.focus()
 		this.liveTracks.subscribe()
 		this.liveTracks.sync()
-
-		setTimeout(() => this.window.once("blur", () => this.handleBlur()), 300)
 	}
 
 	async syncPreferences() {
@@ -305,14 +269,18 @@ export class NTSApplication {
 }
 
 function makeWindow(): BrowserWindow {
-	// Initialise window
+	// A normal application window, not the old 360x270 frameless popup that was
+	// pinned to a screen corner and vanished the moment it lost focus.
 	const window = new BrowserWindow({
-		width: 360,
-		height: 270,
+		width: 1100,
+		height: 720,
+		minWidth: 880,
+		minHeight: 560,
 		show: false,
-		frame: false,
-		resizable: false,
-		alwaysOnTop: true,
+		frame: true,
+		resizable: true,
+		backgroundColor: "#111111",
+		title: "NTS",
 		paintWhenInitiallyHidden: true,
 		webPreferences: {
 			backgroundThrottling: false,
@@ -324,9 +292,14 @@ function makeWindow(): BrowserWindow {
 		},
 	})
 
-	window.setAlwaysOnTop(true, "floating")
-	window.setVisibleOnAllWorkspaces(true)
-	window.fullScreenable = false
+	// Closing the window keeps the app alive in the tray so audio continues.
+	window.on("close", function (evt) {
+		if (quitting) {
+			return
+		}
+		evt.preventDefault()
+		window.hide()
+	})
 
 	return window
 }

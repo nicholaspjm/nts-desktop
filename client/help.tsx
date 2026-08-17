@@ -12,24 +12,24 @@ export function Help(props: Props) {
 	return (
 		<div className={classnames(css.help, hide && css.hide)}>
 			<p>
-				Use the arrows on the side of the window to navigate between the channels.
+				Use the sidebar to move between the live channels, the Infinite Mixtapes
+				and the schedule.
+			</p>
+			<p>
+				Press 1 or 2 to play or stop a live channel.
 				<br />
-				You can also use the arrow keys.
+				The spacebar starts and stops whatever is selected.
 			</p>
 			<p>
-				Click the channel number to play or pause the channel.
+				Use + and - or the up and down arrows to change the volume.
 				<br />
-				The spacebar also works.
+				Ctrl + N shows the window from anywhere.
 			</p>
 			<p>
-				To play a show from the archive, drag the link from your browser to the
-				menubar icon. A webloc file will work too.
+				The bar at the bottom shows connection status. Dropped streams reconnect on
+				their own.
 			</p>
-			<p>
-				On the archive show screen, you can scroll down to reveal the controls and
-				tracklist.
-			</p>
-			<p>Click a track in the tracklist to copy the information to the clipboard.</p>
+			<p>Press ? to hide this help.</p>
 		</div>
 	)
 }

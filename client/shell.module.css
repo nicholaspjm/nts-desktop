@@ -1,0 +1,359 @@
+.shell {
+	position: fixed;
+	inset: 0;
+	display: grid;
+	grid-template-columns: 190px 1fr;
+	grid-template-rows: 1fr auto;
+	grid-template-areas:
+		"nav content"
+		"bar bar";
+	background: black;
+	color: white;
+}
+
+/* Sidebar */
+
+.nav {
+	grid-area: nav;
+	border-right: 1px solid #202020;
+	padding: 18px 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	overflow-y: auto;
+}
+
+.brand {
+	padding: 0 18px 18px;
+	font-size: 26px;
+	font-weight: bold;
+	letter-spacing: 0.02em;
+	font-style: italic;
+}
+
+.navItem {
+	appearance: none;
+	background: none;
+	border: none;
+	color: #8a8a8a;
+	font: inherit;
+	font-size: 16px;
+	text-align: left;
+	padding: 7px 18px;
+	cursor: pointer;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+}
+
+.navItem:hover {
+	color: white;
+}
+
+.navItemActive {
+	color: white;
+	box-shadow: inset 2px 0 0 #e6002d;
+}
+
+.navSpacer {
+	flex: 1;
+}
+
+/* Content */
+
+.content {
+	grid-area: content;
+	overflow-y: auto;
+	padding: 22px 26px 30px;
+}
+
+.heading {
+	font-size: 13px;
+	text-transform: uppercase;
+	letter-spacing: 0.12em;
+	color: #7a7a7a;
+	margin: 0 0 14px;
+}
+
+.channels {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+	gap: 18px;
+}
+
+.card {
+	border: 1px solid #202020;
+	background: #0b0b0b;
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.cardArt {
+	position: relative;
+	aspect-ratio: 16 / 9;
+	background: #151515 center/cover no-repeat;
+}
+
+.cardBadge {
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	background: #e6002d;
+	color: white;
+	font-size: 11px;
+	letter-spacing: 0.1em;
+	padding: 3px 7px;
+	text-transform: uppercase;
+}
+
+.cardBody {
+	padding: 13px 14px 15px;
+	display: flex;
+	flex-direction: column;
+	gap: 7px;
+	min-width: 0;
+}
+
+.cardTitle {
+	font-size: 19px;
+	line-height: 1.15;
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.cardMeta {
+	font-size: 13px;
+	color: #8a8a8a;
+	display: flex;
+	gap: 9px;
+	flex-wrap: wrap;
+}
+
+.cardDesc {
+	font-size: 13px;
+	color: #a5a5a5;
+	margin: 0;
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.tags {
+	display: flex;
+	gap: 5px;
+	flex-wrap: wrap;
+}
+
+.tag {
+	font-size: 11px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: #9a9a9a;
+	border: 1px solid #2b2b2b;
+	padding: 2px 6px;
+}
+
+.cardActions {
+	display: flex;
+	gap: 8px;
+	margin-top: 3px;
+}
+
+.button {
+	appearance: none;
+	font: inherit;
+	font-size: 13px;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	border: 1px solid #333;
+	background: none;
+	color: white;
+	padding: 6px 13px;
+	cursor: pointer;
+}
+
+.button:hover {
+	border-color: #666;
+}
+
+.buttonActive {
+	background: #e6002d;
+	border-color: #e6002d;
+}
+
+/* Mixtapes */
+
+.grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+	gap: 14px;
+}
+
+.tile {
+	appearance: none;
+	font: inherit;
+	text-align: left;
+	border: 1px solid #202020;
+	background: #0b0b0b;
+	color: white;
+	cursor: pointer;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.tile:hover {
+	border-color: #4a4a4a;
+}
+
+.tileActive {
+	border-color: #e6002d;
+}
+
+.tileArt {
+	aspect-ratio: 1;
+	background: #151515 center/cover no-repeat;
+}
+
+.tileBody {
+	padding: 9px 11px 12px;
+	min-width: 0;
+}
+
+.tileTitle {
+	font-size: 15px;
+	margin: 0 0 3px;
+}
+
+.tileSub {
+	font-size: 12px;
+	color: #8a8a8a;
+	margin: 0;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+/* Schedule */
+
+.scheduleCols {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+	gap: 26px;
+}
+
+.row {
+	display: flex;
+	gap: 12px;
+	padding: 8px 0;
+	border-bottom: 1px solid #171717;
+	font-size: 14px;
+	min-width: 0;
+}
+
+.rowTime {
+	color: #7a7a7a;
+	flex: none;
+	width: 84px;
+	font-variant-numeric: tabular-nums;
+}
+
+.rowName {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.rowNow {
+	color: #e6002d;
+}
+
+/* Now playing bar */
+
+.bar {
+	grid-area: bar;
+	border-top: 1px solid #202020;
+	background: #0b0b0b;
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 11px 16px;
+	min-height: 62px;
+}
+
+.barArt {
+	width: 42px;
+	height: 42px;
+	flex: none;
+	background: #1a1a1a center/cover no-repeat;
+}
+
+.barText {
+	min-width: 0;
+	flex: 1;
+}
+
+.barTitle {
+	font-size: 15px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.barSub {
+	font-size: 12px;
+	color: #8a8a8a;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.status {
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.09em;
+	color: #7a7a7a;
+	flex: none;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: #4a4a4a;
+}
+
+.dotPlaying {
+	background: #35c759;
+}
+
+.dotWarn {
+	background: #ffb02e;
+	animation: pulse 1s ease-in-out infinite;
+}
+
+.dotError {
+	background: #e6002d;
+}
+
+@keyframes pulse {
+	50% {
+		opacity: 0.25;
+	}
+}
+
+.volume {
+	flex: none;
+	width: 92px;
+	accent-color: #e6002d;
+}
+
+.empty {
+	color: #6a6a6a;
+	font-size: 14px;
+}
