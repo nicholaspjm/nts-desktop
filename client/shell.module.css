@@ -3,11 +3,95 @@
 	inset: 0;
 	display: grid;
 	grid-template-columns: 190px 1fr;
-	grid-template-rows: 1fr auto;
+	grid-template-rows: 34px 1fr auto;
 	grid-template-areas:
+		"titlebar titlebar"
 		"nav content"
 		"bar bar";
 	background: black;
+	color: white;
+}
+
+/* Title bar. The window is frameless, so this is both the drag handle and the
+   home for the controls the OS would otherwise draw. */
+
+.titlebar {
+	grid-area: titlebar;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 0 4px 0 8px;
+	border-bottom: 1px solid #161616;
+	-webkit-app-region: drag;
+}
+
+.drag {
+	flex: 1;
+	align-self: stretch;
+	-webkit-app-region: drag;
+}
+
+.iconButton {
+	appearance: none;
+	background: none;
+	border: none;
+	color: #8a8a8a;
+	padding: 5px 9px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	-webkit-app-region: no-drag;
+}
+
+.iconButton:hover {
+	color: white;
+	background: #1c1c1c;
+}
+
+.closeButton:hover {
+	background: #e6002d;
+	color: white;
+}
+
+.windowControls {
+	display: flex;
+	-webkit-app-region: no-drag;
+}
+
+.menuWrap {
+	position: relative;
+	-webkit-app-region: no-drag;
+}
+
+.menu {
+	position: absolute;
+	top: 100%;
+	left: 0;
+	z-index: 200;
+	min-width: 168px;
+	background: #121212;
+	border: 1px solid #2a2a2a;
+	padding: 4px 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.menuItem {
+	appearance: none;
+	background: none;
+	border: none;
+	color: #cfcfcf;
+	font: inherit;
+	font-size: 14px;
+	text-align: left;
+	padding: 7px 14px;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.menuItem:hover {
+	background: #1e1e1e;
 	color: white;
 }
 
@@ -283,11 +367,148 @@
 	min-height: 62px;
 }
 
-.barArt {
+.barArtButton {
+	appearance: none;
+	border: none;
+	padding: 0;
 	width: 42px;
 	height: 42px;
 	flex: none;
+	position: relative;
+	cursor: pointer;
 	background: #1a1a1a center/cover no-repeat;
+}
+
+.barExpand {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: white;
+	background: rgba(0, 0, 0, 0.55);
+	opacity: 0;
+	transition: opacity 150ms;
+}
+
+.barArtButton:hover .barExpand {
+	opacity: 1;
+}
+
+/* Full-screen now playing */
+
+.full {
+	position: fixed;
+	inset: 0;
+	z-index: 300;
+	background: #070707;
+	display: flex;
+	flex-direction: column;
+}
+
+.fullBackdrop {
+	position: absolute;
+	inset: 0;
+	background:
+		radial-gradient(120% 90% at 50% 0%, #1a1a1a 0%, #070707 70%);
+	pointer-events: none;
+}
+
+.fullTop {
+	position: relative;
+	display: flex;
+	padding: 8px;
+	-webkit-app-region: drag;
+}
+
+.fullBody {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+	display: grid;
+	grid-template-columns: minmax(240px, 46%) 1fr;
+	gap: 42px;
+	align-items: center;
+	padding: 10px 54px 60px;
+}
+
+.fullArt {
+	width: 100%;
+	aspect-ratio: 1;
+	max-height: 60vh;
+	justify-self: end;
+	background: #151515 center/cover no-repeat;
+	box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+}
+
+.fullInfo {
+	min-width: 0;
+	max-width: 520px;
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.fullStatus {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.12em;
+	color: #8a8a8a;
+}
+
+.fullTitle {
+	font-size: 42px;
+	line-height: 1.05;
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.fullMeta {
+	display: flex;
+	gap: 14px;
+	flex-wrap: wrap;
+	font-size: 15px;
+	color: #9a9a9a;
+}
+
+.fullDesc {
+	font-size: 15px;
+	line-height: 1.45;
+	color: #b5b5b5;
+	margin: 0;
+	display: -webkit-box;
+	-webkit-line-clamp: 6;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.fullControls {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	margin-top: 6px;
+}
+
+@media (max-width: 900px) {
+	.fullBody {
+		grid-template-columns: 1fr;
+		gap: 20px;
+		padding: 10px 28px 40px;
+		align-content: center;
+	}
+
+	.fullArt {
+		justify-self: center;
+		max-width: 320px;
+		max-height: 40vh;
+	}
+
+	.fullTitle {
+		font-size: 30px;
+	}
 }
 
 .barText {

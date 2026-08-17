@@ -1,4 +1,5 @@
 import classnames from "classnames"
+import { useEffect, useRef, useState } from "react"
 
 import type { ChannelInfo, Info, ShowInfo } from "./lib/live"
 import type { Mixtape } from "./lib/mixtapes"
@@ -12,6 +13,20 @@ export type Source =
 	| { kind: "mixtape"; alias: string }
 
 export type View = "live" | "mixtapes" | "schedule"
+
+export type MenuAction = "schedule" | "explore" | "my-nts" | "reload" | "quit"
+export type WindowAction = "minimize" | "maximize" | "close"
+
+// Everything both the bottom bar and the full-screen view need to render.
+export type NowPlaying = {
+	title: string
+	subtitle: string
+	image: string
+	description: string
+	genres: string[]
+	starts: Date | null
+	ends: Date | null
+}
 
 export function sameSource(a: Source | null, b: Source | null): boolean {
 	if (!a || !b) {
@@ -30,14 +45,141 @@ function time(date: Date): string {
 	return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 }
 
+type TitleBarProps = {
+	onAction: (action: MenuAction) => void
+	onWindow: (action: WindowAction) => void
+}
+
+export function TitleBar(props: TitleBarProps) {
+	const { onAction, onWindow } = props
+	const [open, setOpen] = useState(false)
+	const menu = useRef<HTMLDivElement | null>(null)
+
+	useEffect(
+		function () {
+			if (!open) {
+				return
+			}
+
+			function dismiss(evt: MouseEvent) {
+				if (menu.current?.contains(evt.target as Node)) {
+					return
+				}
+				setOpen(false)
+			}
+
+			function onKey(evt: KeyboardEvent) {
+				if (evt.key === "Escape") {
+					setOpen(false)
+				}
+			}
+
+			document.addEventListener("mousedown", dismiss)
+			document.addEventListener("keydown", onKey)
+			return function () {
+				document.removeEventListener("mousedown", dismiss)
+				document.removeEventListener("keydown", onKey)
+			}
+		},
+		[open],
+	)
+
+	const items: Array<{ id: MenuAction; label: string }> = [
+		{ id: "explore", label: "Explore on NTS" },
+		{ id: "schedule", label: "Full schedule" },
+		{ id: "my-nts", label: "My NTS" },
+		{ id: "reload", label: "Reload" },
+		{ id: "quit", label: "Quit" },
+	]
+
+	return (
+		<header className={css.titlebar}>
+			<div className={css.menuWrap} ref={menu}>
+				<button
+					type="button"
+					className={css.iconButton}
+					aria-label="Menu"
+					onClick={() => setOpen((x) => !x)}
+				>
+					<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+						<circle cx="3" cy="8" r="1.4" fill="currentColor" />
+						<circle cx="8" cy="8" r="1.4" fill="currentColor" />
+						<circle cx="13" cy="8" r="1.4" fill="currentColor" />
+					</svg>
+				</button>
+				{open ? (
+					<div className={css.menu}>
+						{items.map(function (item) {
+							return (
+								<button
+									key={item.id}
+									type="button"
+									className={css.menuItem}
+									onClick={() => {
+										setOpen(false)
+										onAction(item.id)
+									}}
+								>
+									{item.label}
+								</button>
+							)
+						})}
+					</div>
+				) : null}
+			</div>
+
+			<div className={css.drag} />
+
+			<div className={css.windowControls}>
+				<button
+					type="button"
+					className={css.iconButton}
+					aria-label="Minimise"
+					onClick={() => onWindow("minimize")}
+				>
+					<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+						<rect x="1" y="5.5" width="10" height="1" fill="currentColor" />
+					</svg>
+				</button>
+				<button
+					type="button"
+					className={css.iconButton}
+					aria-label="Maximise"
+					onClick={() => onWindow("maximize")}
+				>
+					<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+						<rect
+							x="1.5"
+							y="1.5"
+							width="9"
+							height="9"
+							fill="none"
+							stroke="currentColor"
+						/>
+					</svg>
+				</button>
+				<button
+					type="button"
+					className={classnames(css.iconButton, css.closeButton)}
+					aria-label="Close"
+					onClick={() => onWindow("close")}
+				>
+					<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+						<path d="M2 2 L10 10 M10 2 L2 10" stroke="currentColor" fill="none" />
+					</svg>
+				</button>
+			</div>
+		</header>
+	)
+}
+
 type NavProps = {
 	view: View
 	onView: (view: View) => void
-	onChat: () => void
 }
 
 export function Nav(props: NavProps) {
-	const { view, onView, onChat } = props
+	const { view, onView } = props
 
 	const items: Array<{ id: View; label: string }> = [
 		{ id: "live", label: "Live" },
@@ -63,9 +205,6 @@ export function Nav(props: NavProps) {
 				)
 			})}
 			<div className={css.navSpacer} />
-			<button type="button" className={css.navItem} onClick={onChat}>
-				Chat
-			</button>
 		</nav>
 	)
 }
@@ -275,39 +414,158 @@ const STATUS_LABEL: Record<PlayerStatus, string> = {
 	failed: "Stream unavailable",
 }
 
-type BarProps = {
-	title: string
-	subtitle: string
-	image: string
+function StatusDot(props: { status: PlayerStatus }) {
+	return (
+		<span
+			className={classnames(css.dot, {
+				[css.dotPlaying]: props.status === "playing",
+				[css.dotWarn]:
+					props.status === "connecting" || props.status === "reconnecting",
+				[css.dotError]: props.status === "failed",
+			})}
+		/>
+	)
+}
+
+type FullProps = {
+	now: NowPlaying
 	status: PlayerStatus
 	playing: boolean
 	volume: number
 	onToggle: () => void
 	onVolume: (volume: number) => void
+	onClose: () => void
+}
+
+export function FullScreen(props: FullProps) {
+	const { now, status, playing, volume, onToggle, onVolume, onClose } = props
+
+	useEffect(
+		function () {
+			function onKey(evt: KeyboardEvent) {
+				if (evt.key === "Escape") {
+					onClose()
+				}
+			}
+			document.addEventListener("keydown", onKey)
+			return () => document.removeEventListener("keydown", onKey)
+		},
+		[onClose],
+	)
+
+	return (
+		<div className={css.full}>
+			<div className={css.fullBackdrop} />
+			<div className={css.fullTop}>
+				<button
+					type="button"
+					className={css.iconButton}
+					aria-label="Close full screen"
+					onClick={onClose}
+				>
+					<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+						<path
+							d="M3 10 L8 5 L13 10"
+							stroke="currentColor"
+							fill="none"
+							strokeWidth="1.5"
+						/>
+					</svg>
+				</button>
+			</div>
+
+			<div className={css.fullBody}>
+				<div
+					className={css.fullArt}
+					style={now.image ? { backgroundImage: `url(${now.image})` } : undefined}
+				/>
+				<div className={css.fullInfo}>
+					<div className={css.fullStatus}>
+						<StatusDot status={status} />
+						{STATUS_LABEL[status]}
+					</div>
+					<h1 className={css.fullTitle}>{now.title}</h1>
+					<div className={css.fullMeta}>
+						{now.starts && now.ends ? (
+							<span>
+								{time(now.starts)} - {time(now.ends)}
+							</span>
+						) : null}
+						<span>{now.subtitle}</span>
+					</div>
+					{now.description ? (
+						<p className={css.fullDesc}>{now.description}</p>
+					) : null}
+					{now.genres.length > 0 ? (
+						<div className={css.tags}>
+							{now.genres.slice(0, 6).map((g) => (
+								<span key={g} className={css.tag}>
+									{g}
+								</span>
+							))}
+						</div>
+					) : null}
+					<div className={css.fullControls}>
+						<button type="button" className={css.button} onClick={onToggle}>
+							{playing ? "Stop" : "Play"}
+						</button>
+						<input
+							className={css.volume}
+							type="range"
+							min={0}
+							max={1}
+							step={0.01}
+							value={volume}
+							aria-label="Volume"
+							onChange={(e) => onVolume(Number(e.target.value))}
+						/>
+					</div>
+				</div>
+			</div>
+		</div>
+	)
+}
+
+type BarProps = {
+	now: NowPlaying
+	status: PlayerStatus
+	playing: boolean
+	volume: number
+	onToggle: () => void
+	onVolume: (volume: number) => void
+	onExpand: () => void
 }
 
 export function NowPlayingBar(props: BarProps) {
-	const { title, subtitle, image, status, playing, volume, onToggle, onVolume } =
-		props
+	const { now, status, playing, volume, onToggle, onVolume, onExpand } = props
+	const { title, subtitle, image } = now
 
 	return (
 		<div className={css.bar}>
-			<div
-				className={css.barArt}
+			<button
+				type="button"
+				className={css.barArtButton}
+				aria-label="Show full screen"
+				onClick={onExpand}
 				style={image ? { backgroundImage: `url(${image})` } : undefined}
-			/>
+			>
+				<span className={css.barExpand}>
+					<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+						<path
+							d="M3 10 L8 5 L13 10"
+							stroke="currentColor"
+							fill="none"
+							strokeWidth="1.5"
+						/>
+					</svg>
+				</span>
+			</button>
 			<div className={css.barText}>
 				<div className={css.barTitle}>{title}</div>
 				<div className={css.barSub}>{subtitle}</div>
 			</div>
 			<div className={css.status}>
-				<span
-					className={classnames(css.dot, {
-						[css.dotPlaying]: status === "playing",
-						[css.dotWarn]: status === "connecting" || status === "reconnecting",
-						[css.dotError]: status === "failed",
-					})}
-				/>
+				<StatusDot status={status} />
 				{STATUS_LABEL[status]}
 			</div>
 			<button type="button" className={css.button} onClick={onToggle}>

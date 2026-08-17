@@ -22,13 +22,18 @@ import { Notifications } from "./notifications"
 import { Offline } from "./offline"
 import { Player, type PlayerStatus } from "./player"
 import {
+	FullScreen,
 	LiveView,
+	type MenuAction,
 	MixtapesView,
 	Nav,
+	type NowPlaying,
 	NowPlayingBar,
 	ScheduleView,
 	type Source,
+	TitleBar,
 	type View,
+	type WindowAction,
 	sameSource,
 } from "./shell"
 import { Soundcloud } from "./soundcloud"
@@ -68,6 +73,7 @@ export function NTS() {
 	const [looped, setLooped] = useState(0)
 	const [archivePlaying, setArchivePlaying] = useState(false)
 	const [isShowingHelp, setIsShowingHelp] = useState(false)
+	const [isFullScreen, setIsFullScreen] = useState(false)
 
 	const { preferences, updatePreferences } = usePreferences()
 	const isOffline = useOffline()
@@ -193,22 +199,63 @@ export function NTS() {
 		electron.send("tracklist", id)
 	}, [])
 
-	const handleChat = useCallback(
-		function () {
-			electron.send("chat", channel ?? 1)
-		},
-		[channel],
-	)
+	const handleMenu = useCallback(function (action: MenuAction) {
+		electron.send(action)
+	}, [])
 
-	const nowTitle = title(active, live.data, mixtape?.title)
-	const nowSubtitle = subtitle(active, live.data, mixtape?.subtitle)
-	const nowImage = image(active, live.data, mixtape?.image)
+	const handleWindow = useCallback(function (action: WindowAction) {
+		electron.send("window", action)
+	}, [])
+
+	const now = useMemo(
+		function (): NowPlaying {
+			if (!active) {
+				return {
+					title: "Nothing playing",
+					subtitle: "Pick a channel or a mixtape",
+					image: "",
+					description: "",
+					genres: [],
+					starts: null,
+					ends: null,
+				}
+			}
+
+			if (active.kind === "mixtape") {
+				return {
+					title: mixtape?.title ?? "Mixtape",
+					subtitle: mixtape?.subtitle ?? "Infinite Mixtape",
+					image: mixtape?.image ?? "",
+					description: mixtape?.description ?? "",
+					genres: [],
+					starts: null,
+					ends: null,
+				}
+			}
+
+			const info = active.id === 1 ? live.data?.channel1 : live.data?.channel2
+			const show = info?.now
+			return {
+				title: show?.name ?? `Channel ${active.id}`,
+				subtitle: show?.location
+					? `NTS ${active.id} - ${show.location}`
+					: `NTS ${active.id}`,
+				image: show?.image ?? "",
+				description: show?.description ?? "",
+				genres: show?.genres ?? [],
+				starts: show?.starts ?? null,
+				ends: show?.ends ?? null,
+			}
+		},
+		[active, live.data, mixtape],
+	)
 
 	return (
 		<>
 			<Splash hide={!live.loading} />
 			<div className={css.shell}>
-				<Nav view={view} onView={setView} onChat={handleChat} />
+				<TitleBar onAction={handleMenu} onWindow={handleWindow} />
+				<Nav view={view} onView={setView} />
 				<main className={css.content}>
 					{view === "live" ? (
 						<LiveView
@@ -231,16 +278,27 @@ export function NTS() {
 					{view === "schedule" ? <ScheduleView live={live.data} /> : null}
 				</main>
 				<NowPlayingBar
-					title={nowTitle}
-					subtitle={nowSubtitle}
-					image={nowImage}
+					now={now}
 					status={status}
 					playing={Boolean(active)}
 					volume={preferences.volume}
 					onToggle={toggle}
 					onVolume={setVolume}
+					onExpand={() => setIsFullScreen(true)}
 				/>
 			</div>
+
+			{isFullScreen ? (
+				<FullScreen
+					now={now}
+					status={status}
+					playing={Boolean(active)}
+					volume={preferences.volume}
+					onToggle={toggle}
+					onVolume={setVolume}
+					onClose={() => setIsFullScreen(false)}
+				/>
+			) : null}
 
 			<Player
 				src={src}
@@ -282,52 +340,6 @@ export function NTS() {
 			<Help hide={!isShowingHelp} onHide={() => setIsShowingHelp(false)} />
 		</>
 	)
-}
-
-function title(
-	active: Source | null,
-	live: ReturnType<typeof useLiveInfo>["data"],
-	mixtapeTitle: string | undefined,
-): string {
-	if (!active) {
-		return "Nothing playing"
-	}
-	if (active.kind === "mixtape") {
-		return mixtapeTitle ?? "Mixtape"
-	}
-	const channel = active.id === 1 ? live?.channel1 : live?.channel2
-	return channel?.now.name ?? `Channel ${active.id}`
-}
-
-function subtitle(
-	active: Source | null,
-	live: ReturnType<typeof useLiveInfo>["data"],
-	mixtapeSubtitle: string | undefined,
-): string {
-	if (!active) {
-		return "Pick a channel or a mixtape"
-	}
-	if (active.kind === "mixtape") {
-		return mixtapeSubtitle ?? "Infinite Mixtape"
-	}
-	const channel = active.id === 1 ? live?.channel1 : live?.channel2
-	const location = channel?.now.location
-	return location ? `NTS ${active.id} - ${location}` : `NTS ${active.id}`
-}
-
-function image(
-	active: Source | null,
-	live: ReturnType<typeof useLiveInfo>["data"],
-	mixtapeImage: string | undefined,
-): string {
-	if (!active) {
-		return ""
-	}
-	if (active.kind === "mixtape") {
-		return mixtapeImage ?? ""
-	}
-	const channel = active.id === 1 ? live?.channel1 : live?.channel2
-	return channel?.now.image ?? ""
 }
 
 function clamp(min: number, max: number, number: number): number {

@@ -78,6 +78,29 @@ export class NTSApplication {
 			this.storePreferences(prefs),
 		)
 
+		// The window has no frame, so its controls live in the renderer.
+		ipcMain.on("window", (_evt: IpcMainEvent, action: string) => {
+			if (action === "minimize") {
+				this.window.minimize()
+				return
+			}
+			if (action === "maximize") {
+				if (this.window.isMaximized()) {
+					this.window.unmaximize()
+				} else {
+					this.window.maximize()
+				}
+				return
+			}
+			if (action === "close") {
+				this.close()
+			}
+		})
+
+		ipcMain.on("schedule", () => this.openSchedule())
+		ipcMain.on("reload", () => this.reload())
+		ipcMain.on("quit", () => app.quit())
+
 		// @ts-expect-error: only supported on macOS
 		app.on("open-file", (_evt: IpcMainEvent, filename: string) =>
 			this.openFile(filename),
@@ -89,6 +112,9 @@ export class NTSApplication {
 		app.on("activate", () => this.open())
 
 		globalShortcut.register("Control+N", () => this.toggle())
+
+		// No File/Edit/View strip: those actions live behind the overflow menu.
+		Menu.setApplicationMenu(null)
 
 		await this.liveTracks.init()
 		await this.loadClient()
@@ -277,7 +303,8 @@ function makeWindow(): BrowserWindow {
 		minWidth: 880,
 		minHeight: 560,
 		show: false,
-		frame: true,
+		// Chromeless: the app draws its own title bar and window controls.
+		frame: false,
 		resizable: true,
 		backgroundColor: "#111111",
 		title: "NTS",
