@@ -51,8 +51,43 @@ jobs:
       - name: Build renderer
         run: pnpm run build
 
-      # Unsigned on purpose. Signing needs a paid certificate on both platforms,
-      # and the README explains how to get past the resulting warnings.
+      # Scoped to macOS on purpose: CSC_LINK is also what electron-builder reads
+      # for Windows signing, and handing a Mac certificate to the Windows build
+      # would fail it. Every value is optional, and the build falls back to an
+      # ad-hoc signature when they are absent, so a fork with no secrets set
+      # still produces working installers.
+      - name: Prepare macOS signing
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          CERT: ${{ secrets.MAC_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          API_KEY: ${{ secrets.APPLE_API_KEY }}
+          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          if [ -n "$CERT" ]; then
+            echo "CSC_LINK=$CERT" >> "$GITHUB_ENV"
+            echo "CSC_KEY_PASSWORD=$CERT_PASSWORD" >> "$GITHUB_ENV"
+            echo "certificate configured, the app will be signed with it"
+          else
+            echo "no certificate configured, the app will be ad-hoc signed"
+          fi
+
+          if [ -n "$API_KEY" ]; then
+            # notarytool wants a file, not the key itself.
+            mkdir -p "$HOME/private_keys"
+            echo "$API_KEY" | base64 --decode > "$HOME/private_keys/AuthKey.p8"
+            echo "APPLE_API_KEY=$HOME/private_keys/AuthKey.p8" >> "$GITHUB_ENV"
+            echo "APPLE_API_KEY_ID=$API_KEY_ID" >> "$GITHUB_ENV"
+            echo "APPLE_API_ISSUER=$API_ISSUER" >> "$GITHUB_ENV"
+            echo "notarisation key configured"
+          else
+            echo "no notarisation key configured, macOS will warn on first launch"
+          fi
+
+      # The Windows build is still unsigned: that needs a separate certificate,
+      # and the README explains the SmartScreen warning it produces.
       - name: Build installer
         run: pnpm exec electron-builder build ${{ matrix.args }} --publish=never
 

@@ -5,12 +5,23 @@ directories:
   app: dist
   output: bundle
 
-# Apple Silicon will not run an unsigned arm64 binary. There is no certificate
-# here, so the app is ad-hoc signed after packing instead.
+# Apple Silicon will not run an unsigned arm64 binary, so when no certificate is
+# available the app is ad-hoc signed after packing. When one IS available this
+# stands aside and electron-builder signs properly, then the app is notarised.
+# Both hooks no-op without credentials, so building from source still works.
 afterPack: scripts/adhoc-sign.cjs
+afterSign: scripts/notarize.cjs
 
 mac:
   icon: app/icon.icns
+  # Notarisation requires the hardened runtime. The entitlements give back only
+  # what Electron cannot run without, and are ignored when signing ad-hoc.
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # The build machine assessing its own unnotarised output proves nothing, and
+  # fails the build before notarisation has had a chance to run.
+  gatekeeperAssess: false
   category: public.app-category.music
   artifactName: "NTS-Desktop-${version}-mac-${arch}.${ext}"
   target:

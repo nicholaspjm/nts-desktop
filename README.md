@@ -77,6 +77,27 @@ npx pnpm@10 exec electron-builder build --mac --publish=never
 Each platform's installer has to be built on that platform. Pushing a `v*.*.*`
 tag builds both in CI and attaches them to the release.
 
+### Signing, for whoever maintains this
+
+A build with no credentials is ad-hoc signed, which is enough to launch but
+makes macOS warn on first open. To sign and notarise properly, set these as
+repository secrets under Settings, Secrets and variables, Actions:
+
+| Secret | What it is | Where it comes from |
+| --- | --- | --- |
+| `MAC_CERT_P12` | Developer ID Application certificate, base64 | exported from Keychain Access |
+| `MAC_CERT_PASSWORD` | the password set when exporting it | chosen at export time |
+| `APPLE_API_KEY` | App Store Connect key file, base64 | App Store Connect, Integrations, Keys |
+| `APPLE_API_KEY_ID` | that key's ID | shown next to the key |
+| `APPLE_API_ISSUER` | the issuer ID | shown above the key list |
+
+All five are optional and the build degrades rather than failing: without the
+certificate it signs ad-hoc, and without the key it skips notarisation. A fork
+with no secrets set still produces working installers.
+
+The Windows build is separate and still unsigned. Silencing SmartScreen needs
+its own code-signing certificate, which is a different purchase.
+
 ## Origin
 
 This is a fork of **[romeovs/nts-desktop](https://github.com/romeovs/nts-desktop)**
