@@ -366,9 +366,15 @@
 	background: #121212;
 	display: flex;
 	align-items: center;
-	gap: 14px;
-	padding: 11px 16px;
+	gap: 12px;
+	padding: 10px 14px;
 	min-height: 62px;
+	/* Wrap onto a second row rather than crushing the controls off the edge. */
+	flex-wrap: wrap;
+}
+
+.barText {
+	min-width: 120px;
 }
 
 .barArtButton {
@@ -428,17 +434,20 @@
 	position: relative;
 	flex: 1;
 	min-height: 0;
+	overflow-y: auto;
 	display: grid;
 	grid-template-columns: minmax(240px, 46%) 1fr;
 	gap: 42px;
-	align-items: center;
-	padding: 10px 54px 60px;
+	/* start, not center: centring pushes the top of tall content off screen */
+	align-items: start;
+	align-content: center;
+	padding: 10px 54px 40px;
 }
 
 .fullArt {
 	width: 100%;
 	aspect-ratio: 1;
-	max-height: 60vh;
+	max-height: 46vh;
 	justify-self: end;
 	background: #151515 center / cover no-repeat;
 	box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
@@ -818,7 +827,11 @@
    for them and don't draw a second set of controls. */
 
 .titlebarMac {
-	padding-left: 78px;
+	padding-left: 86px;
+}
+
+.fullTopMac {
+	padding-left: 86px;
 }
 
 .hidden {

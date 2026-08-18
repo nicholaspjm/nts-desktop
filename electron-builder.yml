@@ -9,12 +9,11 @@ mac:
   icon: app/icon.icns
   category: public.app-category.music
   target:
-    - target: dir
-      arch:
-        - universal
     - target: dmg
       arch:
-        - universal
+        # Both Apple Silicon and Intel, so one download covers any Mac.
+        - arm64
+        - x64
 
 win:
   icon: logos/logo.png

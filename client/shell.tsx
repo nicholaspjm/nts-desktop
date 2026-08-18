@@ -901,6 +901,93 @@ export function StreamPanel(props: PanelProps) {
 				Buffer ahead · last {window}s · {health.buffered.toFixed(1)}s now
 			</div>
 
+			<div className={css.output}>
+				<span className={css.compareLabel}>Sleep timer</span>
+				{sleepRemaining === null ? (
+					<div className={css.sleepOptions}>
+						{[15, 30, 60, 90].map((m) => (
+							<button
+								key={m}
+								type="button"
+								className={css.panelToggle}
+								onClick={() => onSleep(m)}
+							>
+								{m}m
+							</button>
+						))}
+					</div>
+				) : (
+					<div className={css.sleepOptions}>
+						<span className={css.statValue}>
+							{Math.floor(sleepRemaining / 60)}m {sleepRemaining % 60}s
+						</span>
+						<button
+							type="button"
+							className={css.panelToggle}
+							onClick={onCancelSleep}
+						>
+							Cancel
+						</button>
+					</div>
+				)}
+			</div>
+
+			<label className={css.output}>
+				<span className={css.compareLabel}>Live delivery</span>
+				<select
+					className={css.select}
+					value={liveDelivery}
+					onChange={(e) =>
+						onLiveDelivery(e.target.value === "direct" ? "direct" : "hls")
+					}
+				>
+					<option value="hls">Buffered</option>
+					<option value="direct">Direct</option>
+				</select>
+			</label>
+			<div className={css.settingHint}>
+				Buffered keeps about a minute of audio in hand, so a network stutter is
+				absorbed rather than heard, at the cost of running roughly a minute behind
+				the live broadcast. Direct is only seconds behind but has almost no cushion,
+				so any interruption is audible.
+			</div>
+
+			{canChooseFormat ? (
+				<label className={css.output}>
+					<span className={css.compareLabel}>Mixtape format</span>
+					<select
+						className={css.select}
+						value={mixtapeFormat}
+						onChange={(e) =>
+							onMixtapeFormat(e.target.value === "aac" ? "aac" : "mp3")
+						}
+					>
+						<option value="mp3">MP3 (direct)</option>
+						<option value="aac">AAC (HLS)</option>
+					</select>
+				</label>
+			) : null}
+
+			{outputs.length > 0 ? (
+				<label className={css.output}>
+					<span className={css.compareLabel}>Output</span>
+					<select
+						className={css.select}
+						value={outputDevice}
+						onChange={(e) => onOutputDevice(e.target.value)}
+					>
+						<option value="">System default</option>
+						{outputs
+							.filter((o) => o.id !== "default")
+							.map((o) => (
+								<option key={o.id} value={o.id}>
+									{o.label}
+								</option>
+							))}
+					</select>
+				</label>
+			) : null}
+
 			{detailed ? (
 				<>
 					<div className={css.stats}>
@@ -933,93 +1020,6 @@ export function StreamPanel(props: PanelProps) {
 							</span>
 						</div>
 					</div>
-
-					<div className={css.output}>
-						<span className={css.compareLabel}>Sleep timer</span>
-						{sleepRemaining === null ? (
-							<div className={css.sleepOptions}>
-								{[15, 30, 60, 90].map((m) => (
-									<button
-										key={m}
-										type="button"
-										className={css.panelToggle}
-										onClick={() => onSleep(m)}
-									>
-										{m}m
-									</button>
-								))}
-							</div>
-						) : (
-							<div className={css.sleepOptions}>
-								<span className={css.statValue}>
-									{Math.floor(sleepRemaining / 60)}m {sleepRemaining % 60}s
-								</span>
-								<button
-									type="button"
-									className={css.panelToggle}
-									onClick={onCancelSleep}
-								>
-									Cancel
-								</button>
-							</div>
-						)}
-					</div>
-
-					<label className={css.output}>
-						<span className={css.compareLabel}>Live delivery</span>
-						<select
-							className={css.select}
-							value={liveDelivery}
-							onChange={(e) =>
-								onLiveDelivery(e.target.value === "direct" ? "direct" : "hls")
-							}
-						>
-							<option value="hls">Buffered</option>
-							<option value="direct">Direct</option>
-						</select>
-					</label>
-					<div className={css.settingHint}>
-						Buffered keeps about a minute of audio in hand, so a network stutter is
-						absorbed rather than heard, at the cost of running roughly a minute
-						behind the live broadcast. Direct is only seconds behind but has almost
-						no cushion, so any interruption is audible.
-					</div>
-
-					{canChooseFormat ? (
-						<label className={css.output}>
-							<span className={css.compareLabel}>Mixtape format</span>
-							<select
-								className={css.select}
-								value={mixtapeFormat}
-								onChange={(e) =>
-									onMixtapeFormat(e.target.value === "aac" ? "aac" : "mp3")
-								}
-							>
-								<option value="mp3">MP3 (direct)</option>
-								<option value="aac">AAC (HLS)</option>
-							</select>
-						</label>
-					) : null}
-
-					{outputs.length > 0 ? (
-						<label className={css.output}>
-							<span className={css.compareLabel}>Output</span>
-							<select
-								className={css.select}
-								value={outputDevice}
-								onChange={(e) => onOutputDevice(e.target.value)}
-							>
-								<option value="">System default</option>
-								{outputs
-									.filter((o) => o.id !== "default")
-									.map((o) => (
-										<option key={o.id} value={o.id}>
-											{o.label}
-										</option>
-									))}
-							</select>
-						</label>
-					) : null}
 
 					{probe?.edge ? <div className={css.panelFoot}>{probe.edge}</div> : null}
 				</>
@@ -1099,7 +1099,7 @@ export function FullScreen(props: FullProps) {
 	return (
 		<div className={css.full}>
 			<div className={css.fullBackdrop} />
-			<div className={css.fullTop}>
+			<div className={classnames(css.fullTop, { [css.fullTopMac]: isMac })}>
 				<button
 					type="button"
 					className={css.iconButton}
