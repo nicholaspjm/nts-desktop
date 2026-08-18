@@ -622,6 +622,8 @@ type PanelProps = {
 	mixtapeFormat: "mp3" | "aac"
 	onMixtapeFormat: (format: "mp3" | "aac") => void
 	canChooseFormat: boolean
+	liveDelivery: "hls" | "direct"
+	onLiveDelivery: (delivery: "hls" | "direct") => void
 }
 
 function HealthGraph(props: { health: StreamHealth; height: number }) {
@@ -733,6 +735,8 @@ export function StreamPanel(props: PanelProps) {
 		mixtapeFormat,
 		onMixtapeFormat,
 		canChooseFormat,
+		liveDelivery,
+		onLiveDelivery,
 	} = props
 
 	const measured = probe?.measured ?? null
@@ -807,6 +811,20 @@ export function StreamPanel(props: PanelProps) {
 						</div>
 					</div>
 
+					<label className={css.output}>
+						<span className={css.compareLabel}>Live delivery</span>
+						<select
+							className={css.select}
+							value={liveDelivery}
+							onChange={(e) =>
+								onLiveDelivery(e.target.value === "direct" ? "direct" : "hls")
+							}
+						>
+							<option value="hls">Buffered (HLS, ~60s cushion)</option>
+							<option value="direct">Direct (~2s cushion, closer to live)</option>
+						</select>
+					</label>
+
 					{canChooseFormat ? (
 						<label className={css.output}>
 							<span className={css.compareLabel}>Mixtape format</span>
@@ -863,6 +881,8 @@ type FullProps = {
 	mixtapeFormat: "mp3" | "aac"
 	onMixtapeFormat: (format: "mp3" | "aac") => void
 	canChooseFormat: boolean
+	liveDelivery: "hls" | "direct"
+	onLiveDelivery: (delivery: "hls" | "direct") => void
 	status: PlayerStatus
 	playing: boolean
 	volume: number
@@ -886,6 +906,8 @@ export function FullScreen(props: FullProps) {
 		mixtapeFormat,
 		onMixtapeFormat,
 		canChooseFormat,
+		liveDelivery,
+		onLiveDelivery,
 		status,
 		playing,
 		volume,
@@ -1003,6 +1025,8 @@ export function FullScreen(props: FullProps) {
 						mixtapeFormat={mixtapeFormat}
 						onMixtapeFormat={onMixtapeFormat}
 						canChooseFormat={canChooseFormat}
+						liveDelivery={liveDelivery}
+						onLiveDelivery={onLiveDelivery}
 					/>
 				</div>
 			</div>

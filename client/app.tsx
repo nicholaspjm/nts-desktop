@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import "./global.css"
 
-import { streams } from "~/lib/stream"
+import { hlsStreams, streams } from "~/lib/stream"
 
 import { electron } from "./electron"
 import { useLiveInfo } from "./lib/live"
@@ -99,7 +99,11 @@ export function NTS() {
 				return null
 			}
 			if (active.kind === "channel") {
-				return streams[active.id]
+				// HLS by default: it buffers tens of seconds instead of two, which is
+				// what keeps a network stutter from being audible.
+				return preferences.liveDelivery === "direct"
+					? streams[active.id]
+					: hlsStreams[active.id]
 			}
 			if (!mixtape) {
 				return null
@@ -110,7 +114,7 @@ export function NTS() {
 			}
 			return mixtape.stream
 		},
-		[active, mixtape, preferences.mixtapeFormat],
+		[active, mixtape, preferences.mixtapeFormat, preferences.liveDelivery],
 	)
 
 	const play = useCallback(
@@ -229,6 +233,13 @@ export function NTS() {
 		[updatePreferences],
 	)
 
+	const setLiveDelivery = useCallback(
+		function (liveDelivery: "hls" | "direct") {
+			updatePreferences((prefs) => ({ ...prefs, liveDelivery }))
+		},
+		[updatePreferences],
+	)
+
 	const setOutputDevice = useCallback(
 		function (outputDevice: string) {
 			updatePreferences((prefs) => ({ ...prefs, outputDevice }))
@@ -236,7 +247,20 @@ export function NTS() {
 		[updatePreferences],
 	)
 
-	const streamInfo = useStreamInfo(src)
+	// Probe the direct stream even when playing HLS: the probe decodes MPEG
+	// frames, and an .m3u8 is a playlist, so pointing it at the playlist would
+	// report nothing. Same audio either way, so the figures still describe what
+	// is being heard.
+	const probeSrc = useMemo(
+		function () {
+			if (active?.kind === "channel") {
+				return streams[active.id]
+			}
+			return src
+		},
+		[active, src],
+	)
+	const streamInfo = useStreamInfo(probeSrc)
 	// Only a genuine reconnect counts. The first connect is not a recovery.
 	const health = useStreamHealth(audioEl, Boolean(active), status === "reconnecting")
 
@@ -368,6 +392,8 @@ export function NTS() {
 					mixtapeFormat={preferences.mixtapeFormat}
 					onMixtapeFormat={setMixtapeFormat}
 					canChooseFormat={Boolean(mixtape?.streamAac)}
+					liveDelivery={preferences.liveDelivery}
+					onLiveDelivery={setLiveDelivery}
 					status={status}
 					playing={Boolean(active)}
 					volume={preferences.volume}

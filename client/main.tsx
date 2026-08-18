@@ -9,6 +9,7 @@ const defaults: Preferences = {
 	outputDevice: "",
 	following: [],
 	mixtapeFormat: "mp3",
+	liveDelivery: "hls",
 }
 
 function render(preferences: Preferences) {

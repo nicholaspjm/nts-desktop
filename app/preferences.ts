@@ -10,6 +10,10 @@ export type Preferences = {
 	following: string[]
 	// Preferred mixtape delivery: the direct MP3, or AAC over HLS.
 	mixtapeFormat: "mp3" | "aac"
+	// How live channels are fetched. "hls" buffers tens of seconds and rides out
+	// network trouble; "direct" is the raw stream, roughly two seconds behind
+	// live but with almost no cushion.
+	liveDelivery: "hls" | "direct"
 }
 
 const defaults: Preferences = {
@@ -17,6 +21,7 @@ const defaults: Preferences = {
 	outputDevice: "",
 	following: [],
 	mixtapeFormat: "mp3",
+	liveDelivery: "hls",
 }
 
 const filename = path.join(app.getPath("userData"), "preferences.json")

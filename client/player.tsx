@@ -203,11 +203,34 @@ export function Player(props: Props) {
 			// These are audio-only streams. Left on, hls.js creates an empty
 			// `data:,WEBVTT` caption track that the media CSP then blocks, which is
 			// harmless but fills the log with violations for no benefit.
+			//
+			// The buffer settings are deliberately generous. This app exists to play
+			// radio without gaps, and being a minute behind the live edge costs
+			// nothing, whereas running two seconds ahead of trouble costs the
+			// listener every time the network stutters.
 			const hls = new Hls({
 				enableWorker: true,
 				enableWebVTT: false,
 				enableIMSC1: false,
 				enableCEA708Captions: false,
+
+				// Hold a deep forward buffer so a stalled or slow segment is absorbed.
+				maxBufferLength: 60,
+				maxMaxBufferLength: 180,
+				backBufferLength: 30,
+
+				// Sit several segments behind the live edge. Segments are ~12s, so
+				// this keeps roughly a minute of cushion, and allows drifting further
+				// back rather than skipping when the connection is struggling.
+				liveSyncDurationCount: 5,
+				liveMaxLatencyDurationCount: 15,
+
+				// Try considerably harder before surfacing a fatal error, since the
+				// watchdog's answer is a full reconnect and that is always audible.
+				manifestLoadingMaxRetry: 6,
+				levelLoadingMaxRetry: 6,
+				fragLoadingMaxRetry: 8,
+				fragLoadingRetryDelay: 500,
 			})
 			hls.loadSource(src)
 			hls.attachMedia(audio)
