@@ -5,13 +5,13 @@ directories:
   app: dist
   output: bundle
 
+# Apple Silicon will not run an unsigned arm64 binary. There is no certificate
+# here, so the app is ad-hoc signed after packing instead.
+afterPack: scripts/adhoc-sign.cjs
+
 mac:
   icon: app/icon.icns
   category: public.app-category.music
-  # No certificate, so no real signature. null makes electron-builder apply an
-  # ad-hoc one, which Apple Silicon requires: an arm64 binary with no signature
-  # at all is refused outright and reported as "damaged".
-  identity: null
   artifactName: "NTS-Desktop-${version}-mac-${arch}.${ext}"
   target:
     - target: dmg
