@@ -8,9 +8,9 @@ async function main() {
 	// Without these the OS labels the app "Electron": app.getName() drives the
 	// userData folder and menu, and Windows uses the AppUserModelId for the name
 	// and icon shown on notifications and in the taskbar grouping.
-	app.setName("NTS")
+	app.setName("NTS Desktop")
 	if (process.platform === "win32") {
-		app.setAppUserModelId("com.nicholaspjm.nts")
+		app.setAppUserModelId("com.nicholaspjm.nts-desktop")
 	}
 
 	// Upstream only treats a packaged .asar as production, so running the built

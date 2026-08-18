@@ -72,7 +72,7 @@ console.log("Writing dist/package.json...")
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"))
 // app.getName() reads this, and it ends up on the window, the menu and the
 // userData path.
-pkg.productName = "NTS"
+pkg.productName = "NTS Desktop"
 pkg.dependencies = undefined
 pkg.devDependencies = undefined
 pkg.pnpm = undefined

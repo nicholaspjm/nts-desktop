@@ -384,7 +384,7 @@ function makeWindow(): BrowserWindow {
 			: { frame: false }),
 		resizable: true,
 		backgroundColor: "#111111",
-		title: "NTS",
+		title: "NTS Desktop",
 		icon: nativeImage.createFromPath(path.resolve(__dirname, appIcon)),
 		paintWhenInitiallyHidden: true,
 		webPreferences: {

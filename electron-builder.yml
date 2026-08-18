@@ -1,5 +1,5 @@
 productName: NTS Desktop
-appId: "be.romeovansnick.nts"
+appId: "com.nicholaspjm.nts-desktop"
 
 directories:
   app: dist
@@ -22,6 +22,16 @@ win:
     - target: nsis
       arch:
         - x64
+
+nsis:
+  # A per-user install needs no admin rights, and letting the user pick the
+  # directory avoids silently reinstalling somewhere unexpected.
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: NTS Desktop
 
 fileAssociations:
   ext: webloc
