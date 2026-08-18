@@ -88,6 +88,10 @@ jobs:
           # none at all, and passing one is a hard error rather than an ignored
           # extra. Storing the credentials in a keychain profile covers both, and
           # rejects bad credentials here instead of after packaging.
+          # A length is not the secret, so it survives log masking, and it is
+          # enough to tell a UUID (36) from a Team ID (10) from an empty paste.
+          echo "issuer secret is ${#API_ISSUER} characters long"
+
           if printf '%s' "$API_ISSUER" | grep -Eqi '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'; then
             echo "issuer is a UUID, authenticating as a Team key"
             set -- --issuer "$API_ISSUER"
@@ -96,7 +100,12 @@ jobs:
             set --
           fi
 
-          if xcrun notarytool store-credentials "nts-desktop" --key "$HOME/private_keys/AuthKey.p8" --key-id "$API_KEY_ID" "$@" 2>&1
+          # store-credentials PROMPTS for a missing issuer rather than inferring
+          # there is none, and a runner has no keyboard, so it exhausts its
+          # retries and fails. A bare echo sends the empty line it asks for, which
+          # is how you say "Individual key". Harmless when --issuer was passed:
+          # nothing is waiting to read it.
+          if echo | xcrun notarytool store-credentials "nts-desktop" --key "$HOME/private_keys/AuthKey.p8" --key-id "$API_KEY_ID" "$@" 2>&1
           then
             echo "APPLE_KEYCHAIN_PROFILE=nts-desktop" >> "$GITHUB_ENV"
             echo "notarisation credentials accepted"
