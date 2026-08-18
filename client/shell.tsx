@@ -920,6 +920,14 @@ export function StreamPanel(props: PanelProps) {
 					{resampling.label}
 				</div>
 			) : null}
+			{resampling?.mismatched ? (
+				<div className={css.settingHint}>
+					Nothing this app can change: the rate is set by the operating system.
+					Matching your output device to {(streamRate ?? 44100) / 1000} kHz in the
+					system sound settings avoids it, though most video and games are 48 kHz and
+					would then be the thing resampled instead.
+				</div>
+			) : null}
 
 			<HealthGraph health={health} height={detailed ? 62 : 34} />
 			<div className={css.graphLabel}>
