@@ -74,33 +74,57 @@ jobs:
             echo "no certificate configured, the app will be ad-hoc signed"
           fi
 
-          if [ -n "$API_KEY" ]; then
-            # notarytool wants a file, not the key itself.
-            mkdir -p "$HOME/private_keys"
-            echo "$API_KEY" | base64 --decode > "$HOME/private_keys/AuthKey.p8"
-            echo "APPLE_API_KEY=$HOME/private_keys/AuthKey.p8" >> "$GITHUB_ENV"
-            echo "APPLE_API_KEY_ID=$API_KEY_ID" >> "$GITHUB_ENV"
-            echo "APPLE_API_ISSUER=$API_ISSUER" >> "$GITHUB_ENV"
-            echo "notarisation key configured"
-          else
+          if [ -z "$API_KEY" ]; then
             echo "no notarisation key configured, macOS will warn on first launch"
+            exit 0
           fi
 
-      # Asks Apple whether the credentials work at all, before spending ten
-      # minutes packaging something that cannot be notarised. notarytool reports
-      # credential problems in plain English, where the packaging path buries
-      # them. Never fails the build: it is a diagnostic, not a gate.
-      - name: Check notarisation credentials
-        if: runner.os == 'macOS' && env.APPLE_API_KEY != ''
-        continue-on-error: true
-        shell: bash
-        run: |
-          xcrun notarytool history             --key "$APPLE_API_KEY"             --key-id "$APPLE_API_KEY_ID"             --issuer "$APPLE_API_ISSUER" 2>&1 | head -20
+          # notarytool wants a file, not the key itself.
+          mkdir -p "$HOME/private_keys"
+          echo "$API_KEY" | base64 --decode > "$HOME/private_keys/AuthKey.p8"
+
+          # Apple issues two kinds of App Store Connect key and they authenticate
+          # differently. A Team key carries an issuer UUID; an Individual key has
+          # none at all, and passing one is a hard error rather than an ignored
+          # extra. Storing the credentials in a keychain profile covers both, and
+          # rejects bad credentials here instead of after packaging.
+          if printf '%s' "$API_ISSUER" | grep -Eqi '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'; then
+            echo "issuer is a UUID, authenticating as a Team key"
+            set -- --issuer "$API_ISSUER"
+          else
+            echo "issuer is absent or not a UUID, authenticating as an Individual key"
+            set --
+          fi
+
+          if xcrun notarytool store-credentials "nts-desktop" --key "$HOME/private_keys/AuthKey.p8" --key-id "$API_KEY_ID" "$@" 2>&1
+          then
+            echo "APPLE_KEYCHAIN_PROFILE=nts-desktop" >> "$GITHUB_ENV"
+            echo "notarisation credentials accepted"
+          else
+            echo "::warning::Apple rejected the notarisation credentials. The app will be signed but NOT notarised, so macOS will still warn on first launch."
+          fi
 
       # The Windows build is still unsigned: that needs a separate certificate,
       # and the README explains the SmartScreen warning it produces.
       - name: Build installer
         run: pnpm exec electron-builder build ${{ matrix.args }} --publish=never
+
+      # Proves what was actually built rather than trusting the steps above. A
+      # signed-but-unnotarised app looks identical here and warns on first launch
+      # on the user's machine, so the difference is worth asking about out loud.
+      - name: Verify the signature
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        shell: bash
+        run: |
+          for app in bundle/mac-*/*.app; do
+            echo "=== $app ==="
+            codesign -dv --verbose=2 "$app" 2>&1 | grep -E "Authority|TeamIdentifier|flags" || true
+            echo "--- notarisation ticket ---"
+            xcrun stapler validate "$app" 2>&1 | tail -2 || true
+            echo "--- Gatekeeper verdict ---"
+            spctl -a -vvv -t install "$app" 2>&1 | tail -3 || true
+          done
 
       # arm64 and x64 mean nothing to most people downloading this.
       - name: Give the installers readable names

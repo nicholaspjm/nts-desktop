@@ -18,11 +18,22 @@ exports.default = async function afterSign(context) {
 		return
 	}
 
+	// CI stores the credentials in a keychain profile, because Apple issues two
+	// kinds of App Store Connect key and they authenticate differently: a Team
+	// key needs an issuer UUID, an Individual key has none and rejects one. A
+	// profile hides that difference from here.
+	const profile = process.env.APPLE_KEYCHAIN_PROFILE
 	const key = process.env.APPLE_API_KEY
 	const keyId = process.env.APPLE_API_KEY_ID
 	const issuer = process.env.APPLE_API_ISSUER
 
-	if (!key || !keyId || !issuer) {
+	const credentials = profile
+		? { keychainProfile: profile }
+		: key && keyId && issuer
+			? { appleApiKey: key, appleApiKeyId: keyId, appleApiIssuer: issuer }
+			: null
+
+	if (!credentials) {
 		console.log(
 			"no Apple API credentials present, skipping notarisation: macOS will warn on first launch",
 		)
@@ -40,11 +51,6 @@ exports.default = async function afterSign(context) {
 
 	// Apple queues these. Minutes is normal, longer is not unheard of.
 	console.log(`notarising ${app}, this usually takes a few minutes`)
-	await notarize({
-		appPath: app,
-		appleApiKey: key,
-		appleApiKeyId: keyId,
-		appleApiIssuer: issuer,
-	})
+	await notarize({ appPath: app, ...credentials })
 	console.log("notarised and stapled")
 }
