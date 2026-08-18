@@ -336,12 +336,11 @@ type MixtapesProps = {
 	mixtapes: Mixtape[]
 	loading: boolean
 	source: Source | null
-	onPlay: (source: Source) => void
-	onStop: () => void
+	onSelect: (alias: string) => void
 }
 
 export function MixtapesView(props: MixtapesProps) {
-	const { mixtapes, loading, source, onPlay, onStop } = props
+	const { mixtapes, loading, source, onSelect } = props
 
 	return (
 		<>
@@ -363,11 +362,7 @@ export function MixtapesView(props: MixtapesProps) {
 							key={mixtape.alias}
 							type="button"
 							className={classnames(css.tile, { [css.tileActive]: active })}
-							onClick={
-								active
-									? onStop
-									: () => onPlay({ kind: "mixtape", alias: mixtape.alias })
-							}
+							onClick={() => onSelect(mixtape.alias)}
 						>
 							<div
 								className={css.tileArt}
@@ -528,14 +523,60 @@ export function SearchView(props: SearchProps) {
 	)
 }
 
+type MixtapeDetailProps = {
+	mixtape: Mixtape
+	playing: boolean
+	onPlay: () => void
+	onStop: () => void
+	onBack: () => void
+}
+
+export function MixtapeDetail(props: MixtapeDetailProps) {
+	const { mixtape, playing, onPlay, onStop, onBack } = props
+
+	return (
+		<>
+			<button type="button" className={css.backLink} onClick={onBack}>
+				← All mixtapes
+			</button>
+
+			<article className={css.detail}>
+				<div
+					className={css.detailArt}
+					style={
+						mixtape.image ? { backgroundImage: `url(${mixtape.image})` } : undefined
+					}
+				/>
+				<div className={css.detailBody}>
+					<h1 className={css.detailTitle}>{mixtape.title}</h1>
+					<p className={css.detailSub}>{mixtape.subtitle}</p>
+					{mixtape.description ? (
+						<p className={css.detailDesc}>{mixtape.description}</p>
+					) : null}
+					<div className={css.cardActions}>
+						<button
+							type="button"
+							className={classnames(css.button, { [css.buttonActive]: playing })}
+							onClick={playing ? onStop : onPlay}
+						>
+							{playing ? "Stop" : "Play"}
+						</button>
+					</div>
+				</div>
+			</article>
+		</>
+	)
+}
+
 type ArchiveProps = {
 	show: ArchiveShow | null
 	playing: boolean
 	onToggle: () => void
+	onOriginal: (url: string) => void
 }
 
 export function ArchiveView(props: ArchiveProps) {
-	const { show, playing, onToggle } = props
+	const { show, playing, onToggle, onOriginal } = props
 
 	if (!show) {
 		return <p className={css.empty}>No archive show loaded. Find one in Search.</p>
@@ -564,6 +605,16 @@ export function ArchiveView(props: ArchiveProps) {
 						>
 							{playing ? "Stop" : "Play"}
 						</button>
+						{show.source?.url ? (
+							<button
+								type="button"
+								className={css.button}
+								onClick={() => onOriginal(show.source.url)}
+							>
+								Open on{" "}
+								{show.source.source === "mixcloud" ? "Mixcloud" : "SoundCloud"}
+							</button>
+						) : null}
 					</div>
 				</div>
 			</article>
@@ -820,10 +871,16 @@ export function StreamPanel(props: PanelProps) {
 								onLiveDelivery(e.target.value === "direct" ? "direct" : "hls")
 							}
 						>
-							<option value="hls">Buffered (HLS, ~60s cushion)</option>
-							<option value="direct">Direct (~2s cushion, closer to live)</option>
+							<option value="hls">Buffered</option>
+							<option value="direct">Direct</option>
 						</select>
 					</label>
+					<div className={css.settingHint}>
+						Buffered keeps about a minute of audio in hand, so a network stutter is
+						absorbed rather than heard, at the cost of running roughly a minute
+						behind the live broadcast. Direct is only seconds behind but has almost
+						no cushion, so any interruption is audible.
+					</div>
 
 					{canChooseFormat ? (
 						<label className={css.output}>

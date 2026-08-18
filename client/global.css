@@ -1,3 +1,10 @@
+:root {
+	/* Native widgets the OS draws for us - select popups, scrollbars, form
+	   controls - default to a light palette and render unreadable on this UI.
+	   Declaring the scheme once here fixes every one of them. */
+	color-scheme: dark;
+}
+
 @font-face {
 	font-family: "UniversCondensed";
 	src: url("../font/UniversCondensed.woff2") format("woff2");
@@ -22,4 +29,29 @@ body {
 
 	user-select: none;
 	overflow: hidden;
+}
+
+/* Scrollbars, so long lists like a tracklist match the rest of the app rather
+   than dropping in the platform's own. */
+
+::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+
+::-webkit-scrollbar-track {
+	background: #0d0d0d;
+}
+
+::-webkit-scrollbar-thumb {
+	background: #333333;
+	border: 2px solid #0d0d0d;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: #555555;
+}
+
+::-webkit-scrollbar-corner {
+	background: #0d0d0d;
 }

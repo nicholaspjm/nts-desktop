@@ -413,7 +413,7 @@
 .fullBackdrop {
 	position: absolute;
 	inset: 0;
-	background: radial-gradient(120% 90% at 50% 0%, #1a1a1a 0%, #070707 70%);
+	background: #070707;
 	pointer-events: none;
 }
 
@@ -649,6 +649,12 @@
 	border-color: #555;
 }
 
+.select option,
+.barSelect option {
+	background: #121212;
+	color: white;
+}
+
 .graph {
 	display: block;
 	width: 100%;
@@ -788,14 +794,15 @@
 	background: #333333;
 }
 
+/* The site uses a 2px bar with a 12px round white dot. */
 .volume::-webkit-slider-thumb {
 	appearance: none;
-	width: 3px;
+	width: 12px;
 	height: 12px;
 	margin-top: -5px;
 	background: white;
 	border: none;
-	border-radius: 0;
+	border-radius: 6px;
 }
 
 .volume:hover::-webkit-slider-runnable-track {
@@ -883,4 +890,82 @@
 .tagMood {
 	color: #666666;
 	border-color: #222222;
+}
+
+/* Detail view: shown when a mixtape is opened, before anything plays. */
+
+.backLink {
+	appearance: none;
+	background: none;
+	border: none;
+	color: #999999;
+	font: inherit;
+	font-size: 13px;
+	padding: 0 0 16px;
+	cursor: pointer;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+}
+
+.backLink:hover {
+	color: white;
+}
+
+.detail {
+	display: grid;
+	grid-template-columns: minmax(180px, 300px) 1fr;
+	gap: 28px;
+	align-items: start;
+}
+
+.detailArt {
+	width: 100%;
+	aspect-ratio: 1;
+	background: #151515 center / cover no-repeat;
+}
+
+.detailBody {
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.detailTitle {
+	font-size: 34px;
+	line-height: 1.05;
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.detailSub {
+	font-size: 15px;
+	color: #999999;
+	margin: 0;
+}
+
+.detailDesc {
+	font-size: 14px;
+	line-height: 1.45;
+	color: #cccccc;
+	margin: 0;
+	max-width: 620px;
+}
+
+@media (max-width: 720px) {
+	.detail {
+		grid-template-columns: 1fr;
+		gap: 16px;
+	}
+
+	.detailTitle {
+		font-size: 26px;
+	}
+}
+
+.settingHint {
+	font-size: 11px;
+	color: #666666;
+	margin-top: 5px;
+	line-height: 1.4;
 }

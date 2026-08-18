@@ -120,9 +120,18 @@ export class NTSApplication {
 			},
 		)
 
+		// Only ever hand the browser links to NTS or to the services that actually
+		// host the archive audio.
+		const EXTERNAL_ALLOWED = [
+			"https://www.nts.live/",
+			"https://nts.live/",
+			"https://www.mixcloud.com/",
+			"https://mixcloud.com/",
+			"https://soundcloud.com/",
+			"https://www.soundcloud.com/",
+		]
 		ipcMain.on("open-external", (_evt: IpcMainEvent, url: string) => {
-			// Only ever hand nts.live links to the system browser.
-			if (url.startsWith("https://www.nts.live/")) {
+			if (EXTERNAL_ALLOWED.some((prefix) => url.startsWith(prefix))) {
 				shell.openExternal(url)
 			}
 		})

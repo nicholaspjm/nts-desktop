@@ -28,6 +28,7 @@ import {
 	FullScreen,
 	LiveView,
 	type MenuAction,
+	MixtapeDetail,
 	MixtapesView,
 	Nav,
 	type NowPlaying,
@@ -73,6 +74,8 @@ export function NTS() {
 	const [query, setQuery] = useState("")
 	const [muted, setMuted] = useState(false)
 	const [sortOrder, setSortOrder] = useState<SortOrder>("relevance")
+	// Which mixtape is being looked at, as distinct from which is playing.
+	const [openMixtape, setOpenMixtape] = useState<string | null>(null)
 
 	const { preferences, updatePreferences } = usePreferences()
 	const isOffline = useOffline()
@@ -200,7 +203,9 @@ export function NTS() {
 	useEvent("open-show", async function (next: ArchiveShow) {
 		setShow(next)
 		setActive(null)
-		setArchivePlaying(true)
+		// Land on the details rather than starting playback: the user asked for
+		// this thing, they have not yet asked to hear it.
+		setArchivePlaying(false)
 		setView("archive")
 		setPosition(0)
 		setLooped(0)
@@ -330,13 +335,29 @@ export function NTS() {
 						/>
 					) : null}
 					{view === "mixtapes" ? (
-						<MixtapesView
-							mixtapes={mix.data}
-							loading={mix.loading}
-							source={active}
-							onPlay={play}
-							onStop={stop}
-						/>
+						openMixtape && mix.data.some((m) => m.alias === openMixtape) ? (
+							<MixtapeDetail
+								mixtape={
+									mix.data.find(
+										(m) => m.alias === openMixtape,
+									) as (typeof mix.data)[0]
+								}
+								playing={sameSource(active, {
+									kind: "mixtape",
+									alias: openMixtape,
+								})}
+								onPlay={() => play({ kind: "mixtape", alias: openMixtape })}
+								onStop={stop}
+								onBack={() => setOpenMixtape(null)}
+							/>
+						) : (
+							<MixtapesView
+								mixtapes={mix.data}
+								loading={mix.loading}
+								source={active}
+								onSelect={setOpenMixtape}
+							/>
+						)
 					) : null}
 					{view === "schedule" ? <ScheduleView live={live.data} /> : null}
 					{view === "search" ? (
@@ -354,6 +375,7 @@ export function NTS() {
 							show={show}
 							playing={archivePlaying}
 							onToggle={() => setArchivePlaying((x) => !x)}
+							onOriginal={(url) => electron.send("open-external", url)}
 						/>
 					) : null}
 				</main>
