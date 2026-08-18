@@ -388,14 +388,16 @@ export function NTS() {
 					playing={Boolean(active)}
 					volume={preferences.volume}
 					muted={muted}
-					source={active}
+					health={health}
+					outputs={outputs}
+					outputDevice={preferences.outputDevice}
+					onOutputDevice={setOutputDevice}
 					onToggle={toggle}
 					onVolume={(v) => {
 						setMuted(false)
 						setVolume(v)
 					}}
 					onMute={() => setMuted((m) => !m)}
-					onChannel={toggleChannel}
 					onExpand={() => setIsFullScreen(true)}
 				/>
 			</div>

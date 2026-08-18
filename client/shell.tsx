@@ -994,11 +994,13 @@ type BarProps = {
 	playing: boolean
 	volume: number
 	muted: boolean
-	source: Source | null
+	health: StreamHealth
+	outputs: AudioOutput[]
+	outputDevice: string
+	onOutputDevice: (id: string) => void
 	onToggle: () => void
 	onVolume: (volume: number) => void
 	onMute: () => void
-	onChannel: (id: 1 | 2) => void
 	onExpand: () => void
 }
 
@@ -1010,19 +1012,34 @@ export function NowPlayingBar(props: BarProps) {
 		playing,
 		volume,
 		muted,
-		source,
+		health,
+		outputs,
+		outputDevice,
+		onOutputDevice,
 		onToggle,
 		onVolume,
 		onMute,
-		onChannel,
 		onExpand,
 	} = props
 	const { title, subtitle, image } = now
 
 	// Compact, and only ever what the frames proved.
 	const measured = probe?.measured
+	const codec = measured
+		? measured.codec.includes("Layer III")
+			? "MP3"
+			: measured.codec.includes("AAC") || measured.codec.includes("mp4a")
+				? "AAC"
+				: measured.codec
+		: null
 	const format = measured
-		? `${measured.bitrate}k ${measured.codec.includes("Layer III") ? "MP3" : measured.codec}`
+		? [
+				`${measured.bitrate} kbps`,
+				codec,
+				measured.sampleRate ? `${(measured.sampleRate / 1000).toFixed(1)} kHz` : null,
+			]
+				.filter(Boolean)
+				.join(" · ")
 		: null
 
 	return (
@@ -1049,27 +1066,33 @@ export function NowPlayingBar(props: BarProps) {
 				<div className={css.barTitle}>{title}</div>
 				<div className={css.barSub}>{subtitle}</div>
 			</div>
-			{format ? <div className={css.barFormat}>{format}</div> : null}
-			<div className={css.status}>
-				<StatusDot status={status} />
-				{STATUS_LABEL[status]}
+			<div className={css.barStream}>
+				<div className={css.barFormat}>{format ?? "No stream"}</div>
+				<div className={css.barStreamSub}>
+					<StatusDot status={status} />
+					{STATUS_LABEL[status]}
+					{status === "playing" ? ` · ${health.buffered.toFixed(1)}s buffered` : ""}
+				</div>
 			</div>
-			<div className={css.barChannels}>
-				{([1, 2] as const).map(function (id) {
-					const on = sameSource(source, { kind: "channel", id })
-					return (
-						<button
-							key={id}
-							type="button"
-							className={classnames(css.chip, { [css.chipActive]: on })}
-							onClick={() => onChannel(id)}
-							title={`Channel ${id}`}
-						>
-							{id}
-						</button>
-					)
-				})}
-			</div>
+
+			{outputs.length > 0 ? (
+				<select
+					className={css.barSelect}
+					value={outputDevice}
+					aria-label="Audio output"
+					title="Audio output"
+					onChange={(e) => onOutputDevice(e.target.value)}
+				>
+					<option value="">System default</option>
+					{outputs
+						.filter((o) => o.id !== "default")
+						.map((o) => (
+							<option key={o.id} value={o.id}>
+								{o.label}
+							</option>
+						))}
+				</select>
+			) : null}
 
 			<button type="button" className={css.button} onClick={onToggle}>
 				{playing ? "Stop" : "Play"}
