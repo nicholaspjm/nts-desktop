@@ -22,6 +22,13 @@ mac:
   # The build machine assessing its own unnotarised output proves nothing, and
   # fails the build before notarisation has had a chance to run.
   gatekeeperAssess: false
+  # electron-builder 24 auto-notarises the moment it sees the APPLE_API_* env
+  # vars, using its own pinned copy of @electron/notarize. That copy calls
+  # JSON.parse on notarytool's output unconditionally, so any plain-text error
+  # from Apple surfaces as "Unexpected token" with the real message destroyed.
+  # Turning it off leaves scripts/notarize.cjs as the single path, on a version
+  # that reports what Apple actually said.
+  notarize: false
   category: public.app-category.music
   artifactName: "NTS-Desktop-${version}-mac-${arch}.${ext}"
   target:
