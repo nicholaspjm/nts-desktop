@@ -1276,6 +1276,8 @@ type BarProps = {
 	playing: boolean
 	volume: number
 	muted: boolean
+	source: Source | null
+	onChannel: (id: 1 | 2) => void
 	health: StreamHealth
 	outputs: AudioOutput[]
 	outputDevice: string
@@ -1294,6 +1296,8 @@ export function NowPlayingBar(props: BarProps) {
 		playing,
 		volume,
 		muted,
+		source,
+		onChannel,
 		health,
 		outputs,
 		outputDevice,
@@ -1377,6 +1381,23 @@ export function NowPlayingBar(props: BarProps) {
 						))}
 				</select>
 			) : null}
+
+			<div className={css.barChannels}>
+				{([1, 2] as const).map(function (id) {
+					const on = sameSource(source, { kind: "channel", id })
+					return (
+						<button
+							key={id}
+							type="button"
+							className={classnames(css.chip, { [css.chipActive]: on })}
+							onClick={() => onChannel(id)}
+							title={`Channel ${id}`}
+						>
+							{id}
+						</button>
+					)
+				})}
+			</div>
 
 			<button type="button" className={css.button} onClick={onToggle}>
 				{playing ? "Stop" : "Play"}

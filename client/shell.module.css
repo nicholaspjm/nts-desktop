@@ -1011,3 +1011,36 @@
 .menuItemHighlight {
 	color: var(--nts-red);
 }
+
+/* Station chips in the bottom bar: outlined rather than filled, so the red is
+   reserved for the one that is actually playing. */
+
+.barChannels {
+	display: flex;
+	gap: 5px;
+	flex: none;
+}
+
+.chip {
+	appearance: none;
+	font: inherit;
+	font-size: 12px;
+	width: 26px;
+	height: 26px;
+	border: 1px solid var(--nts-line);
+	background: none;
+	color: var(--nts-text-muted);
+	cursor: pointer;
+	font-variant-numeric: tabular-nums;
+}
+
+.chip:hover {
+	color: var(--nts-text);
+	border-color: var(--nts-line-strong);
+}
+
+.chipActive {
+	background: var(--nts-red);
+	border-color: var(--nts-red);
+	color: var(--nts-text);
+}

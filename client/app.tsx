@@ -468,6 +468,8 @@ export function NTS() {
 					playing={Boolean(active)}
 					volume={preferences.volume}
 					muted={muted}
+					source={active}
+					onChannel={toggleChannel}
 					health={health}
 					outputs={outputs}
 					outputDevice={preferences.outputDevice}
