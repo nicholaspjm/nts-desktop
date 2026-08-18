@@ -787,3 +787,35 @@
 	margin-top: 22px;
 	max-width: 640px;
 }
+
+/* Bottom bar quick controls */
+
+.barChannels {
+	display: flex;
+	gap: 5px;
+	flex: none;
+}
+
+.chip {
+	appearance: none;
+	font: inherit;
+	font-size: 12px;
+	width: 26px;
+	height: 26px;
+	border: 1px solid #2b2b2b;
+	background: none;
+	color: #8a8a8a;
+	cursor: pointer;
+	font-variant-numeric: tabular-nums;
+}
+
+.chip:hover {
+	color: white;
+	border-color: #555;
+}
+
+.chipActive {
+	background: #e6002d;
+	border-color: #e6002d;
+	color: white;
+}

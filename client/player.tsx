@@ -196,7 +196,15 @@ export function Player(props: Props) {
 				return
 			}
 
-			const hls = new Hls({ enableWorker: true })
+			// These are audio-only streams. Left on, hls.js creates an empty
+			// `data:,WEBVTT` caption track that the media CSP then blocks, which is
+			// harmless but fills the log with violations for no benefit.
+			const hls = new Hls({
+				enableWorker: true,
+				enableWebVTT: false,
+				enableIMSC1: false,
+				enableCEA708Captions: false,
+			})
 			hls.loadSource(src)
 			hls.attachMedia(audio)
 			hls.on(Hls.Events.MANIFEST_PARSED, function () {

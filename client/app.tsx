@@ -82,6 +82,7 @@ export function NTS() {
 	const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null)
 	const [detailedStream, setDetailedStream] = useState(false)
 	const [query, setQuery] = useState("")
+	const [muted, setMuted] = useState(false)
 
 	const { preferences, updatePreferences } = usePreferences()
 	const isOffline = useOffline()
@@ -386,8 +387,15 @@ export function NTS() {
 					status={status}
 					playing={Boolean(active)}
 					volume={preferences.volume}
+					muted={muted}
+					source={active}
 					onToggle={toggle}
-					onVolume={setVolume}
+					onVolume={(v) => {
+						setMuted(false)
+						setVolume(v)
+					}}
+					onMute={() => setMuted((m) => !m)}
+					onChannel={toggleChannel}
 					onExpand={() => setIsFullScreen(true)}
 				/>
 			</div>
@@ -422,7 +430,7 @@ export function NTS() {
 				onStop={() => {}}
 				onStatus={setStatus}
 				onElement={setAudioEl}
-				volume={preferences.volume}
+				volume={muted ? 0 : preferences.volume}
 			/>
 
 			{show?.source?.source === "mixcloud" && (

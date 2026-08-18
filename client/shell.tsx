@@ -993,14 +993,30 @@ type BarProps = {
 	status: PlayerStatus
 	playing: boolean
 	volume: number
+	muted: boolean
+	source: Source | null
 	onToggle: () => void
 	onVolume: (volume: number) => void
+	onMute: () => void
+	onChannel: (id: 1 | 2) => void
 	onExpand: () => void
 }
 
 export function NowPlayingBar(props: BarProps) {
-	const { now, probe, status, playing, volume, onToggle, onVolume, onExpand } =
-		props
+	const {
+		now,
+		probe,
+		status,
+		playing,
+		volume,
+		muted,
+		source,
+		onToggle,
+		onVolume,
+		onMute,
+		onChannel,
+		onExpand,
+	} = props
 	const { title, subtitle, image } = now
 
 	// Compact, and only ever what the frames proved.
@@ -1038,16 +1054,61 @@ export function NowPlayingBar(props: BarProps) {
 				<StatusDot status={status} />
 				{STATUS_LABEL[status]}
 			</div>
+			<div className={css.barChannels}>
+				{([1, 2] as const).map(function (id) {
+					const on = sameSource(source, { kind: "channel", id })
+					return (
+						<button
+							key={id}
+							type="button"
+							className={classnames(css.chip, { [css.chipActive]: on })}
+							onClick={() => onChannel(id)}
+							title={`Channel ${id}`}
+						>
+							{id}
+						</button>
+					)
+				})}
+			</div>
+
 			<button type="button" className={css.button} onClick={onToggle}>
 				{playing ? "Stop" : "Play"}
 			</button>
+
+			<button
+				type="button"
+				className={css.iconButton}
+				onClick={onMute}
+				aria-label={muted ? "Unmute" : "Mute"}
+				title={muted ? "Unmute" : "Mute"}
+			>
+				<svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
+					<path d="M3 6h2.5L9 3v10L5.5 10H3z" fill="currentColor" />
+					{muted ? (
+						<path
+							d="M11 6l3.5 4M14.5 6L11 10"
+							stroke="currentColor"
+							strokeWidth="1.3"
+							fill="none"
+						/>
+					) : (
+						<path
+							d="M11.4 5.6a3.4 3.4 0 0 1 0 4.8"
+							stroke="currentColor"
+							strokeWidth="1.3"
+							fill="none"
+						/>
+					)}
+				</svg>
+			</button>
+
 			<input
 				className={css.volume}
 				type="range"
 				min={0}
 				max={1}
 				step={0.01}
-				value={volume}
+				value={muted ? 0 : volume}
 				aria-label="Volume"
 				onChange={(e) => onVolume(Number(e.target.value))}
 			/>
