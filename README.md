@@ -8,6 +8,19 @@ uninterrupted background listening on Windows and macOS.
 Not affiliated with, endorsed by, or supported by NTS. Please do not report bugs
 in this app to them.
 
+## Download
+
+**[Download for Windows](https://github.com/nicholaspjm/nts-desktop/releases/latest)** - grab the `.exe` from the latest release, run it, done. No developer tools needed.
+
+Windows will probably show a blue "Windows protected your PC" box the first time,
+because the app is not code signed. Click **More info**, then **Run anyway**. It
+installs for your user only, so it never asks for an administrator password.
+
+Once installed it appears in the Start Menu and Windows search as **NTS Desktop**.
+
+There is no macOS download yet. macOS support is written but has never been run
+on a Mac, and a Mac build has to be produced on a Mac.
+
 ## Origin
 
 This is a fork of **[romeovs/nts-desktop](https://github.com/romeovs/nts-desktop)**
