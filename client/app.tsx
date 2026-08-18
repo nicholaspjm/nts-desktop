@@ -76,6 +76,7 @@ export function NTS() {
 	const [isShowingHelp, setIsShowingHelp] = useState(false)
 	const [isFullScreen, setIsFullScreen] = useState(false)
 	const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null)
+	const [detailedStream, setDetailedStream] = useState(false)
 
 	const { preferences, updatePreferences } = usePreferences()
 	const isOffline = useOffline()
@@ -297,9 +298,11 @@ export function NTS() {
 			{isFullScreen ? (
 				<FullScreen
 					now={now}
-					info={streamInfo.info}
-					infoLoading={streamInfo.loading}
+					probe={streamInfo.probe}
+					probeLoading={streamInfo.loading}
 					health={health}
+					detailed={detailedStream}
+					onDetailed={setDetailedStream}
 					status={status}
 					playing={Boolean(active)}
 					volume={preferences.volume}

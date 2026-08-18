@@ -17,7 +17,7 @@ mac:
         - universal
 
 win:
-  icon: logos/menu.png
+  icon: logos/logo.png
   target:
     - target: nsis
       arch:

@@ -1,11 +1,11 @@
 import classnames from "classnames"
 import { useEffect, useRef, useState } from "react"
 
-import logo from "../logos/menu.svg"
+import logo from "../logos/nts.svg"
 
 import type { ChannelInfo, Info, ShowInfo } from "./lib/live"
 import type { Mixtape } from "./lib/mixtapes"
-import type { StreamHealth, StreamInfo } from "./lib/stream-info"
+import { type StreamHealth, type StreamProbe, smooth } from "./lib/stream-info"
 import type { PlayerStatus } from "./player"
 
 import css from "./shell.module.css"
@@ -433,14 +433,16 @@ function StatusDot(props: { status: PlayerStatus }) {
 }
 
 type PanelProps = {
-	info: StreamInfo | null
+	probe: StreamProbe | null
 	loading: boolean
 	health: StreamHealth
 	status: PlayerStatus
+	detailed: boolean
+	onDetailed: (detailed: boolean) => void
 }
 
-function HealthGraph(props: { health: StreamHealth }) {
-	const { health } = props
+function HealthGraph(props: { health: StreamHealth; height: number }) {
+	const { health, height } = props
 	const canvas = useRef<HTMLCanvasElement | null>(null)
 
 	useEffect(
@@ -457,60 +459,66 @@ function HealthGraph(props: { health: StreamHealth }) {
 
 			const ratio = window.devicePixelRatio || 1
 			const width = el.clientWidth
-			const height = el.clientHeight
+			const h = el.clientHeight
 			el.width = Math.round(width * ratio)
-			el.height = Math.round(height * ratio)
+			el.height = Math.round(h * ratio)
 			ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
-			ctx.clearRect(0, 0, width, height)
+			ctx.clearRect(0, 0, width, h)
 
 			const points = health.history
 			if (points.length === 0) {
 				return
 			}
 
-			// Scale to the largest buffer seen, with a floor so a healthy flat line
-			// doesn't fill the whole graph and look alarming.
-			const peak = Math.max(4, ...points.map((p) => p.buffered))
-			const step = width / Math.max(1, points.length - 1)
+			// The raw buffer trace is a sawtooth; smooth it so the graph shows the
+			// trend rather than the sampling noise.
+			const values = smooth(points.map((p) => p.buffered))
+
+			// Scale to the largest value seen, with a floor so a healthy flat line
+			// does not fill the frame and read as alarming.
+			const peak = Math.max(4, ...values)
+			const step = width / Math.max(1, values.length - 1)
+			const y = (v: number) => h - (v / peak) * (h - 3) - 1
+
+			// Smooth curve through the points rather than straight segments.
+			function trace(c: CanvasRenderingContext2D) {
+				c.moveTo(0, y(values[0]))
+				for (let i = 1; i < values.length; i++) {
+					const px = (i - 1) * step
+					const cx = i * step
+					const mid = (px + cx) / 2
+					c.bezierCurveTo(mid, y(values[i - 1]), mid, y(values[i]), cx, y(values[i]))
+				}
+			}
 
 			ctx.beginPath()
-			ctx.moveTo(0, height)
-			points.forEach(function (point, i) {
-				const x = i * step
-				const y = height - (point.buffered / peak) * (height - 2)
-				ctx.lineTo(x, y)
-			})
-			ctx.lineTo((points.length - 1) * step, height)
+			ctx.moveTo(0, h)
+			ctx.lineTo(0, y(values[0]))
+			trace(ctx)
+			ctx.lineTo((values.length - 1) * step, h)
 			ctx.closePath()
-			ctx.fillStyle = "rgba(230, 0, 45, 0.18)"
+			ctx.fillStyle = "rgba(230, 0, 45, 0.16)"
 			ctx.fill()
 
 			ctx.beginPath()
-			points.forEach(function (point, i) {
-				const x = i * step
-				const y = height - (point.buffered / peak) * (height - 2)
-				if (i === 0) {
-					ctx.moveTo(x, y)
-				} else {
-					ctx.lineTo(x, y)
-				}
-			})
+			trace(ctx)
 			ctx.strokeStyle = "#e6002d"
 			ctx.lineWidth = 1.5
+			ctx.lineJoin = "round"
 			ctx.stroke()
 
 			// Mark every moment the watchdog was reconnecting.
 			ctx.fillStyle = "rgba(255, 176, 46, 0.85)"
 			points.forEach(function (point, i) {
 				if (point.reconnecting) {
-					ctx.fillRect(i * step - 1, 0, 2, height)
+					ctx.fillRect(i * step - 1, 0, 2, h)
 				}
 			})
 		},
-		[health],
+		[health, height],
 	)
 
-	return <canvas className={css.graph} ref={canvas} />
+	return <canvas className={css.graph} style={{ height }} ref={canvas} />
 }
 
 function Stat(props: { label: string; value: string }) {
@@ -522,51 +530,90 @@ function Stat(props: { label: string; value: string }) {
 	)
 }
 
-export function StreamPanel(props: PanelProps) {
-	const { info, loading, health, status } = props
+function contentTypeLabel(contentType: string): string {
+	return contentType.split(";")[0].trim() || "-"
+}
 
-	const quality =
-		info?.bitrate != null
-			? `${info.bitrate} kbps ${info.codec}`.trim()
-			: loading
-				? "Reading…"
-				: "Unknown"
+export function StreamPanel(props: PanelProps) {
+	const { probe, loading, health, status, detailed, onDetailed } = props
+
+	const measured = probe?.measured ?? null
+	const reported = probe?.reported ?? null
+
+	// Only ever state the codec the frames actually prove. A Content-Type is a
+	// claim, so it is shown as one, separately.
+	const quality = measured
+		? `${measured.bitrate} kbps · ${measured.sampleRate ? `${(measured.sampleRate / 1000).toFixed(1)} kHz` : "?"} · ${measured.channelMode}`
+		: loading
+			? "Probing…"
+			: "Not measured"
 
 	const minutes = Math.floor(health.uptime / 60)
 	const seconds = health.uptime % 60
+	const uptime = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`
+	const window = Math.round((health.history.length * 500) / 1000)
 
 	return (
 		<section className={css.panel}>
 			<div className={css.panelHead}>
 				<span className={css.heading}>Stream</span>
-				<span className={css.panelQuality}>{quality}</span>
+				<button
+					type="button"
+					className={css.panelToggle}
+					onClick={() => onDetailed(!detailed)}
+				>
+					{detailed ? "Minimal" : "Detailed"}
+				</button>
 			</div>
 
-			<HealthGraph health={health} />
+			<div className={css.panelQuality}>
+				{measured ? measured.codec : loading ? "Reading stream…" : "Unverified"}
+			</div>
+			<div className={css.panelSub}>{quality}</div>
+
+			<HealthGraph health={health} height={detailed ? 62 : 34} />
 			<div className={css.graphLabel}>
-				Buffer ahead, last {Math.round((health.history.length * 500) / 1000)}s
+				Buffer ahead · last {window}s · {health.buffered.toFixed(1)}s now
 			</div>
 
-			<div className={css.stats}>
-				<Stat label="Buffered" value={`${health.buffered.toFixed(1)}s`} />
-				<Stat
-					label="Sample rate"
-					value={info?.sampleRate ? `${(info.sampleRate / 1000).toFixed(1)} kHz` : "-"}
-				/>
-				<Stat label="Codec" value={info?.codec || "-"} />
-				<Stat label="State" value={STATUS_LABEL[status]} />
-				<Stat
-					label="Uptime"
-					value={minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`}
-				/>
-				<Stat label="Reconnects" value={String(health.reconnects)} />
-			</div>
+			{detailed ? (
+				<>
+					<div className={css.stats}>
+						<Stat label="Buffered" value={`${health.buffered.toFixed(1)}s`} />
+						<Stat label="State" value={STATUS_LABEL[status]} />
+						<Stat label="Uptime" value={uptime} />
+						<Stat label="Reconnects" value={String(health.reconnects)} />
+						<Stat
+							label="Frames read"
+							value={measured ? String(measured.frames) : "-"}
+						/>
+						<Stat
+							label="Served by"
+							value={reported?.station || "-"}
+						/>
+					</div>
 
-			{info?.edge ? (
-				<div className={css.panelFoot}>
-					{info.station ? `${info.station} · ` : ""}
-					{info.edge}
-				</div>
+					<div className={css.compare}>
+						<div className={css.compareRow}>
+							<span className={css.compareLabel}>Measured from audio</span>
+							<span className={css.compareValue}>
+								{measured
+									? `${measured.codec}, ${measured.bitrate} kbps, ${measured.sampleRate} Hz, ${measured.channelMode}`
+									: "could not decode frames"}
+							</span>
+						</div>
+						<div className={css.compareRow}>
+							<span className={css.compareLabel}>Reported by server</span>
+							<span className={css.compareValue}>
+								{reported
+									? `${contentTypeLabel(reported.contentType)}${reported.bitrate ? `, ${reported.bitrate} kbps` : ""}${reported.sampleRate ? `, ${reported.sampleRate} Hz` : ""}`
+									: "-"}
+							</span>
+						</div>
+					</div>
+
+					{probe?.edge ? <div className={css.panelFoot}>{probe.edge}</div> : null}
+				</>
 			) : null}
 		</section>
 	)
@@ -574,9 +621,11 @@ export function StreamPanel(props: PanelProps) {
 
 type FullProps = {
 	now: NowPlaying
-	info: StreamInfo | null
-	infoLoading: boolean
+	probe: StreamProbe | null
+	probeLoading: boolean
 	health: StreamHealth
+	detailed: boolean
+	onDetailed: (detailed: boolean) => void
 	status: PlayerStatus
 	playing: boolean
 	volume: number
@@ -588,9 +637,11 @@ type FullProps = {
 export function FullScreen(props: FullProps) {
 	const {
 		now,
-		info,
-		infoLoading,
+		probe,
+		probeLoading,
 		health,
+		detailed,
+		onDetailed,
 		status,
 		playing,
 		volume,
@@ -681,10 +732,12 @@ export function FullScreen(props: FullProps) {
 					</div>
 
 					<StreamPanel
-						info={info}
-						loading={infoLoading}
+						probe={probe}
+						loading={probeLoading}
 						health={health}
 						status={status}
+						detailed={detailed}
+						onDetailed={onDetailed}
 					/>
 				</div>
 			</div>

@@ -114,11 +114,9 @@
 }
 
 .brandLogo {
-	width: 46px;
+	width: 42px;
 	height: auto;
 	display: block;
-	/* The shipped mark is black artwork, and this UI is not. */
-	filter: invert(1);
 }
 
 .navItem {
@@ -518,10 +516,65 @@
 	margin: 0;
 }
 
-.panelQuality {
-	font-size: 13px;
+.panelToggle {
+	appearance: none;
+	background: none;
+	border: 1px solid #2b2b2b;
+	color: #8a8a8a;
+	font: inherit;
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+	padding: 3px 8px;
+	cursor: pointer;
+}
+
+.panelToggle:hover {
 	color: white;
-	letter-spacing: 0.04em;
+	border-color: #555;
+}
+
+.panelQuality {
+	font-size: 16px;
+	color: white;
+	letter-spacing: 0.02em;
+}
+
+.panelSub {
+	font-size: 12px;
+	color: #8a8a8a;
+	margin: 2px 0 9px;
+	font-variant-numeric: tabular-nums;
+}
+
+.compare {
+	margin-top: 12px;
+	border-top: 1px solid #171717;
+	padding-top: 10px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.compareRow {
+	display: flex;
+	gap: 10px;
+	font-size: 12px;
+	align-items: baseline;
+}
+
+.compareLabel {
+	flex: none;
+	width: 132px;
+	color: #6a6a6a;
+	text-transform: uppercase;
+	font-size: 10px;
+	letter-spacing: 0.09em;
+}
+
+.compareValue {
+	color: #c5c5c5;
+	overflow-wrap: anywhere;
 }
 
 .graph {

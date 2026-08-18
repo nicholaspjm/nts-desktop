@@ -2,30 +2,41 @@ import { useEffect, useRef, useState } from "react"
 
 import { electron } from "../electron"
 
-export type StreamInfo = {
-	bitrate: number | null
-	sampleRate: number | null
-	codec: string
-	station: string
+export type StreamProbe = {
+	// What the server claims in its ICY headers.
+	reported: {
+		bitrate: number | null
+		sampleRate: number | null
+		contentType: string
+		station: string
+	}
+	// What the audio frames themselves prove. Null when the bytes could not be
+	// decoded, in which case nothing measured should be shown.
+	measured: {
+		codec: string
+		bitrate: number | null
+		sampleRate: number | null
+		channelMode: string
+		frames: number
+	} | null
 	edge: string
 }
 
 export type StreamInfoState = {
-	info: StreamInfo | null
+	probe: StreamProbe | null
 	loading: boolean
 }
 
 /**
- * Broadcast parameters for the current stream, read from its ICY headers.
+ * Broadcast parameters for the current stream.
  *
- * The work happens in the main process. The relay that fronts these streams
- * answers its 302 without any Access-Control-Allow-Origin, so a renderer-side
- * fetch cannot read the headers, and asking for them in CORS mode is worse than
- * useless: it breaks the audio load.
+ * Runs in the main process. The relay fronting these streams answers its 302
+ * without Access-Control-Allow-Origin, so a renderer-side fetch cannot read the
+ * headers, and requesting them in CORS mode breaks the audio load outright.
  */
 export function useStreamInfo(src: string | null): StreamInfoState {
 	const [state, setState] = useState<StreamInfoState>({
-		info: null,
+		probe: null,
 		loading: false,
 	})
 	const request = useRef(0)
@@ -33,28 +44,28 @@ export function useStreamInfo(src: string | null): StreamInfoState {
 	useEffect(
 		function () {
 			if (!src) {
-				setState({ info: null, loading: false })
+				setState({ probe: null, loading: false })
 				return
 			}
 
 			const id = request.current + 1
 			request.current = id
-			setState({ info: null, loading: true })
+			setState({ probe: null, loading: true })
 
 			electron
 				.invoke("stream-info", src)
-				.then(function (info: StreamInfo | null) {
+				.then(function (probe: StreamProbe | null) {
 					// A newer source was selected while this was in flight.
 					if (request.current !== id) {
 						return
 					}
-					setState({ info, loading: false })
+					setState({ probe, loading: false })
 				})
 				.catch(function () {
 					if (request.current !== id) {
 						return
 					}
-					setState({ info: null, loading: false })
+					setState({ probe: null, loading: false })
 				})
 		},
 		[src],
@@ -154,4 +165,22 @@ export function useStreamHealth(
 	)
 
 	return health
+}
+
+/**
+ * Exponential moving average. The raw buffer trace is a sawtooth, which reads
+ * as alarming noise rather than as the trend the graph is meant to show.
+ */
+export function smooth(values: number[], factor = 0.25): number[] {
+	if (values.length === 0) {
+		return values
+	}
+
+	const out: number[] = []
+	let acc = values[0]
+	for (const value of values) {
+		acc = acc + (value - acc) * factor
+		out.push(acc)
+	}
+	return out
 }

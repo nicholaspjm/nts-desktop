@@ -14,7 +14,6 @@ import {
 	globalShortcut,
 	ipcMain,
 	nativeImage,
-	net,
 	shell,
 } from "electron"
 import serve from "electron-serve"
@@ -24,7 +23,9 @@ import * as history from "./history"
 import { NTSLiveTracks } from "./live-tracks"
 import * as preferences from "./preferences"
 import { show } from "./show"
+import { probeStream } from "./stream-probe"
 
+import appIcon from "../logos/logo.png"
 import menubarOne from "../logos/menu-one.png"
 import menubarTwo from "../logos/menu-two.png"
 import menubar from "../logos/menu.png"
@@ -105,7 +106,7 @@ export class NTSApplication {
 		// the renderer cannot read them, and requesting them from there in CORS
 		// mode breaks the audio load outright.
 		ipcMain.handle("stream-info", (_evt: IpcMainInvokeEvent, url: string) =>
-			readStreamInfo(url),
+			probeStream(url),
 		)
 
 		ipcMain.on("schedule", () => this.openSchedule())
@@ -336,79 +337,6 @@ export class NTSApplication {
 	}
 }
 
-export type StreamInfo = {
-	bitrate: number | null
-	sampleRate: number | null
-	codec: string
-	station: string
-	edge: string
-}
-
-function header(value: string | string[] | undefined): string {
-	if (Array.isArray(value)) {
-		return value[0] ?? ""
-	}
-	return value ?? ""
-}
-
-function numeric(value: string | string[] | undefined): number | null {
-	const parsed = Number(header(value))
-	return Number.isFinite(parsed) && parsed > 0 ? parsed : null
-}
-
-function codecName(contentType: string): string {
-	const type = contentType.split(";")[0].trim().toLowerCase()
-	if (type === "audio/mpeg" || type === "audio/mp3") {
-		return "MP3"
-	}
-	if (type === "audio/aac" || type === "audio/aacp" || type === "audio/mp4") {
-		return "AAC"
-	}
-	if (type === "audio/ogg") {
-		return "Ogg Vorbis"
-	}
-	return type
-}
-
-function readStreamInfo(url: string): Promise<StreamInfo | null> {
-	return new Promise(function (resolve) {
-		let edge = url
-		const request = net.request({ url, method: "GET" })
-		request.setHeader("Icy-MetaData", "1")
-
-		// Never leave a hung request holding a live audio connection open.
-		const timer = setTimeout(function () {
-			request.abort()
-			resolve(null)
-		}, 8000)
-
-		request.on("redirect", function (_status: number, _method: string, to: string) {
-			edge = to
-		})
-
-		request.on("response", function (response) {
-			clearTimeout(timer)
-			const headers = response.headers
-			resolve({
-				bitrate: numeric(headers["icy-br"]),
-				sampleRate: numeric(headers["icy-samplerate"]),
-				codec: codecName(header(headers["content-type"])),
-				station: header(headers["icy-name"]),
-				edge: new URL(edge).host,
-			})
-			// Headers were the point; don't pull the audio down a second time.
-			request.abort()
-		})
-
-		request.on("error", function () {
-			clearTimeout(timer)
-			resolve(null)
-		})
-
-		request.end()
-	})
-}
-
 function makeWindow(): BrowserWindow {
 	// A normal application window, not the old 360x270 frameless popup that was
 	// pinned to a screen corner and vanished the moment it lost focus.
@@ -423,6 +351,7 @@ function makeWindow(): BrowserWindow {
 		resizable: true,
 		backgroundColor: "#111111",
 		title: "NTS",
+		icon: nativeImage.createFromPath(path.resolve(__dirname, appIcon)),
 		paintWhenInitiallyHidden: true,
 		webPreferences: {
 			backgroundThrottling: false,
