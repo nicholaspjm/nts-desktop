@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from "react"
 import logo from "../logos/nts.svg"
 
 import type { ChannelInfo, Info, ShowInfo } from "./lib/live"
+import type { ShowInfo as ArchiveShow } from "../app/show"
 import type { Mixtape } from "./lib/mixtapes"
 import type { AudioOutput } from "./lib/outputs"
+import { type SearchState, isShowURL } from "./lib/search"
 import { type StreamHealth, type StreamProbe, smooth } from "./lib/stream-info"
 import type { PlayerStatus } from "./player"
 
@@ -16,7 +18,7 @@ export type Source =
 	| { kind: "channel"; id: 1 | 2 }
 	| { kind: "mixtape"; alias: string }
 
-export type View = "live" | "mixtapes" | "schedule"
+export type View = "live" | "mixtapes" | "schedule" | "search" | "archive"
 
 export type MenuAction = "schedule" | "explore" | "my-nts" | "reload" | "quit"
 export type WindowAction = "minimize" | "maximize" | "close"
@@ -184,6 +186,7 @@ export function TitleBar(props: TitleBarProps) {
 type NavProps = {
 	view: View
 	onView: (view: View) => void
+	hasArchive: boolean
 }
 
 export function Nav(props: NavProps) {
@@ -193,7 +196,11 @@ export function Nav(props: NavProps) {
 		{ id: "live", label: "Live" },
 		{ id: "mixtapes", label: "Mixtapes" },
 		{ id: "schedule", label: "Schedule" },
+		{ id: "search", label: "Search" },
 	]
+	if (props.hasArchive) {
+		items.push({ id: "archive", label: "Archive" })
+	}
 
 	return (
 		<nav className={css.nav}>
@@ -223,13 +230,16 @@ type ChannelCardProps = {
 	channel: 1 | 2
 	info: ChannelInfo | undefined
 	active: boolean
+	following: boolean
 	onPlay: () => void
 	onStop: () => void
 	onTracklist: () => void
+	onFollow: () => void
 }
 
 export function ChannelCard(props: ChannelCardProps) {
-	const { channel, info, active, onPlay, onStop, onTracklist } = props
+	const { channel, info, active, following, onPlay, onStop, onTracklist, onFollow } =
+		props
 	const now = info?.now
 
 	return (
@@ -273,6 +283,16 @@ export function ChannelCard(props: ChannelCardProps) {
 					<button type="button" className={css.button} onClick={onTracklist}>
 						Tracklist
 					</button>
+					{now?.showAlias ? (
+						<button
+							type="button"
+							className={classnames(css.button, { [css.buttonActive]: following })}
+							onClick={onFollow}
+							title="Notify me when this show starts"
+						>
+							{following ? "Following" : "Follow"}
+						</button>
+					) : null}
 				</div>
 				{info?.next ? (
 					<div className={css.cardMeta}>
@@ -287,28 +307,34 @@ export function ChannelCard(props: ChannelCardProps) {
 type LiveProps = {
 	live: Info | null
 	source: Source | null
+	following: string[]
 	onPlay: (source: Source) => void
 	onStop: () => void
 	onTracklist: (channel: 1 | 2) => void
+	onFollow: (alias: string) => void
 }
 
 export function LiveView(props: LiveProps) {
-	const { live, source, onPlay, onStop, onTracklist } = props
+	const { live, source, following, onPlay, onStop, onTracklist, onFollow } = props
 
 	return (
 		<>
 			<h1 className={css.heading}>Live now</h1>
 			<div className={css.channels}>
 				{([1, 2] as const).map(function (id) {
+					const info = id === 1 ? live?.channel1 : live?.channel2
+					const alias = info?.now.showAlias ?? ""
 					return (
 						<ChannelCard
 							key={id}
 							channel={id}
-							info={id === 1 ? live?.channel1 : live?.channel2}
+							info={info}
 							active={sameSource(source, { kind: "channel", id })}
+							following={Boolean(alias) && following.includes(alias)}
 							onPlay={() => onPlay({ kind: "channel", id })}
 							onStop={onStop}
 							onTracklist={() => onTracklist(id)}
+							onFollow={() => alias && onFollow(alias)}
 						/>
 					)
 				})}
@@ -416,6 +442,144 @@ export function ScheduleView(props: ScheduleProps) {
 	)
 }
 
+type SearchProps = {
+	query: string
+	onQuery: (query: string) => void
+	state: SearchState
+	onOpen: (url: string) => void
+}
+
+export function SearchView(props: SearchProps) {
+	const { query, onQuery, state, onOpen } = props
+	const pasted = isShowURL(query)
+
+	return (
+		<>
+			<h1 className={css.heading}>Search the archive</h1>
+			<div className={css.searchRow}>
+				<input
+					className={css.searchInput}
+					value={query}
+					placeholder="Show, artist, or paste an nts.live show link"
+					aria-label="Search"
+					onChange={(e) => onQuery(e.target.value)}
+					onKeyDown={(e) => {
+						if (e.key === "Enter" && pasted) {
+							onOpen(query.trim())
+						}
+					}}
+				/>
+				{pasted ? (
+					<button
+						type="button"
+						className={css.button}
+						onClick={() => onOpen(query.trim())}
+					>
+						Open
+					</button>
+				) : null}
+			</div>
+
+			{pasted ? (
+				<p className={css.empty}>
+					That is a show link. Press Open to load it.
+				</p>
+			) : null}
+			{state.loading ? <p className={css.empty}>Searching…</p> : null}
+			{state.error ? <p className={css.empty}>Search failed.</p> : null}
+			{!state.loading && !state.error && query.trim().length >= 2 && !pasted && state.results.length === 0 ? (
+				<p className={css.empty}>Nothing found.</p>
+			) : null}
+
+			<div className={css.grid}>
+				{state.results.map(function (result) {
+					return (
+						<button
+							key={result.url}
+							type="button"
+							className={css.tile}
+							onClick={() => onOpen(result.url)}
+						>
+							<div
+								className={css.tileArt}
+								style={
+									result.image ? { backgroundImage: `url(${result.image})` } : undefined
+								}
+							/>
+							<div className={css.tileBody}>
+								<h2 className={css.tileTitle}>{result.title}</h2>
+								<p className={css.tileSub}>
+									{[result.date, result.location].filter(Boolean).join(" · ")}
+								</p>
+							</div>
+						</button>
+					)
+				})}
+			</div>
+		</>
+	)
+}
+
+type ArchiveProps = {
+	show: ArchiveShow | null
+	playing: boolean
+	onToggle: () => void
+}
+
+export function ArchiveView(props: ArchiveProps) {
+	const { show, playing, onToggle } = props
+
+	if (!show) {
+		return <p className={css.empty}>No archive show loaded. Find one in Search.</p>
+	}
+
+	return (
+		<>
+			<h1 className={css.heading}>Archive</h1>
+			<article className={css.card}>
+				<div
+					className={css.cardArt}
+					style={show.image ? { backgroundImage: `url(${show.image})` } : undefined}
+				/>
+				<div className={css.cardBody}>
+					<h2 className={css.cardTitle}>{show.name}</h2>
+					<div className={css.cardMeta}>
+						<span>{new Date(show.date).toLocaleDateString()}</span>
+						{show.location ? <span>{show.location}</span> : null}
+						<span>{show.source?.source ?? "no audio source"}</span>
+					</div>
+					<div className={css.cardActions}>
+						<button
+							type="button"
+							className={classnames(css.button, { [css.buttonActive]: playing })}
+							onClick={onToggle}
+						>
+							{playing ? "Stop" : "Play"}
+						</button>
+					</div>
+				</div>
+			</article>
+
+			{show.tracklist && show.tracklist.length > 0 ? (
+				<section className={css.tracklist}>
+					<h2 className={css.heading}>Tracklist</h2>
+					{show.tracklist.map(function (track, i) {
+						return (
+							<div key={`${track.artist}-${track.title}-${i}`} className={css.row}>
+								<span className={css.rowTime}>{String(i + 1).padStart(2, "0")}</span>
+								<span className={css.rowName}>
+									{track.artist ? `${track.artist} - ` : ""}
+									{track.title}
+								</span>
+							</div>
+						)
+					})}
+				</section>
+			) : null}
+		</>
+	)
+}
+
 const STATUS_LABEL: Record<PlayerStatus, string> = {
 	idle: "Stopped",
 	connecting: "Connecting",
@@ -447,6 +611,9 @@ type PanelProps = {
 	outputs: AudioOutput[]
 	outputDevice: string
 	onOutputDevice: (id: string) => void
+	mixtapeFormat: "mp3" | "aac"
+	onMixtapeFormat: (format: "mp3" | "aac") => void
+	canChooseFormat: boolean
 }
 
 function HealthGraph(props: { health: StreamHealth; height: number }) {
@@ -553,6 +720,9 @@ export function StreamPanel(props: PanelProps) {
 		outputs,
 		outputDevice,
 		onOutputDevice,
+		mixtapeFormat,
+		onMixtapeFormat,
+		canChooseFormat,
 	} = props
 
 	const measured = probe?.measured ?? null
@@ -630,6 +800,22 @@ export function StreamPanel(props: PanelProps) {
 						</div>
 					</div>
 
+					{canChooseFormat ? (
+						<label className={css.output}>
+							<span className={css.compareLabel}>Mixtape format</span>
+							<select
+								className={css.select}
+								value={mixtapeFormat}
+								onChange={(e) =>
+									onMixtapeFormat(e.target.value === "aac" ? "aac" : "mp3")
+								}
+							>
+								<option value="mp3">MP3 (direct)</option>
+								<option value="aac">AAC (HLS)</option>
+							</select>
+						</label>
+					) : null}
+
 					{outputs.length > 0 ? (
 						<label className={css.output}>
 							<span className={css.compareLabel}>Output</span>
@@ -667,6 +853,9 @@ type FullProps = {
 	outputs: AudioOutput[]
 	outputDevice: string
 	onOutputDevice: (id: string) => void
+	mixtapeFormat: "mp3" | "aac"
+	onMixtapeFormat: (format: "mp3" | "aac") => void
+	canChooseFormat: boolean
 	status: PlayerStatus
 	playing: boolean
 	volume: number
@@ -686,6 +875,9 @@ export function FullScreen(props: FullProps) {
 		outputs,
 		outputDevice,
 		onOutputDevice,
+		mixtapeFormat,
+		onMixtapeFormat,
+		canChooseFormat,
 		status,
 		playing,
 		volume,
@@ -785,6 +977,9 @@ export function FullScreen(props: FullProps) {
 						outputs={outputs}
 						outputDevice={outputDevice}
 						onOutputDevice={onOutputDevice}
+						mixtapeFormat={mixtapeFormat}
+						onMixtapeFormat={onMixtapeFormat}
+						canChooseFormat={canChooseFormat}
 					/>
 				</div>
 			</div>

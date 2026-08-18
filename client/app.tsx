@@ -8,6 +8,7 @@ import { electron } from "./electron"
 import { useLiveInfo } from "./lib/live"
 import { useMixtapes } from "./lib/mixtapes"
 import { useAudioOutput, useAudioOutputs } from "./lib/outputs"
+import { useSearch } from "./lib/search"
 import { usePreferences } from "./lib/preferences"
 import { useStreamHealth, useStreamInfo } from "./lib/stream-info"
 import { useEvent } from "./lib/use-event"
@@ -24,6 +25,7 @@ import { Notifications } from "./notifications"
 import { Offline } from "./offline"
 import { Player, type PlayerStatus } from "./player"
 import {
+	ArchiveView,
 	FullScreen,
 	LiveView,
 	type MenuAction,
@@ -32,6 +34,7 @@ import {
 	type NowPlaying,
 	NowPlayingBar,
 	ScheduleView,
+	SearchView,
 	type Source,
 	TitleBar,
 	type View,
@@ -78,6 +81,7 @@ export function NTS() {
 	const [isFullScreen, setIsFullScreen] = useState(false)
 	const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null)
 	const [detailedStream, setDetailedStream] = useState(false)
+	const [query, setQuery] = useState("")
 
 	const { preferences, updatePreferences } = usePreferences()
 	const isOffline = useOffline()
@@ -106,9 +110,16 @@ export function NTS() {
 			if (active.kind === "channel") {
 				return streams[active.id]
 			}
-			return mixtape?.stream ?? null
+			if (!mixtape) {
+				return null
+			}
+			// Fall back to the direct MP3 if this mixtape has no AAC variant.
+			if (preferences.mixtapeFormat === "aac" && mixtape.streamAac) {
+				return mixtape.streamAac
+			}
+			return mixtape.stream
 		},
-		[active, mixtape],
+		[active, mixtape, preferences.mixtapeFormat],
 	)
 
 	const play = useCallback(
@@ -195,12 +206,61 @@ export function NTS() {
 		setShow(next)
 		setActive(null)
 		setArchivePlaying(true)
+		setView("archive")
 		setPosition(0)
 		setLooped(0)
 	})
 
 	const handleTracklist = useCallback(function (id: 1 | 2) {
 		electron.send("tracklist", id)
+	}, [])
+
+	const following = preferences.following
+	const toggleFollow = useCallback(
+		function (alias: string) {
+			updatePreferences(function (prefs) {
+				const has = prefs.following.includes(alias)
+				return {
+					...prefs,
+					following: has
+						? prefs.following.filter((a) => a !== alias)
+						: [...prefs.following, alias],
+				}
+			})
+		},
+		[updatePreferences],
+	)
+
+	// Notify when a followed show starts. Keyed by alias plus start time so a
+	// single broadcast never notifies twice, including across a schedule refetch.
+	const notified = useRef<Set<string>>(new Set())
+	useEffect(
+		function () {
+			if (!live.data || following.length === 0) {
+				return
+			}
+
+			for (const channel of [live.data.channel1, live.data.channel2]) {
+				const show = channel.now
+				if (!show.showAlias || !following.includes(show.showAlias)) {
+					continue
+				}
+				const key = `${show.showAlias}@${show.starts.toISOString()}`
+				if (notified.current.has(key)) {
+					continue
+				}
+				notified.current.add(key)
+				electron.send("notify", {
+					title: `${show.name} is on air`,
+					body: show.location ? `NTS · ${show.location}` : "NTS",
+				})
+			}
+		},
+		[live.data, following],
+	)
+
+	const openArchive = useCallback(function (url: string) {
+		electron.send("open-url", url)
 	}, [])
 
 	const handleMenu = useCallback(function (action: MenuAction) {
@@ -211,8 +271,16 @@ export function NTS() {
 		electron.send("window", action)
 	}, [])
 
+	const search = useSearch(query)
 	const outputs = useAudioOutputs()
 	useAudioOutput(audioEl, preferences.outputDevice)
+
+	const setMixtapeFormat = useCallback(
+		function (mixtapeFormat: "mp3" | "aac") {
+			updatePreferences((prefs) => ({ ...prefs, mixtapeFormat }))
+		},
+		[updatePreferences],
+	)
 
 	const setOutputDevice = useCallback(
 		function (outputDevice: string) {
@@ -273,15 +341,17 @@ export function NTS() {
 			<Splash hide={!live.loading} />
 			<div className={css.shell}>
 				<TitleBar onAction={handleMenu} onWindow={handleWindow} />
-				<Nav view={view} onView={setView} />
+				<Nav view={view} onView={setView} hasArchive={Boolean(show)} />
 				<main className={css.content}>
 					{view === "live" ? (
 						<LiveView
 							live={live.data}
 							source={active}
+							following={following}
 							onPlay={play}
 							onStop={stop}
 							onTracklist={handleTracklist}
+							onFollow={toggleFollow}
 						/>
 					) : null}
 					{view === "mixtapes" ? (
@@ -294,6 +364,21 @@ export function NTS() {
 						/>
 					) : null}
 					{view === "schedule" ? <ScheduleView live={live.data} /> : null}
+					{view === "search" ? (
+						<SearchView
+							query={query}
+							onQuery={setQuery}
+							state={search}
+							onOpen={openArchive}
+						/>
+					) : null}
+					{view === "archive" ? (
+						<ArchiveView
+							show={show}
+							playing={archivePlaying}
+							onToggle={() => setArchivePlaying((x) => !x)}
+						/>
+					) : null}
 				</main>
 				<NowPlayingBar
 					now={now}
@@ -318,6 +403,9 @@ export function NTS() {
 					outputs={outputs}
 					outputDevice={preferences.outputDevice}
 					onOutputDevice={setOutputDevice}
+					mixtapeFormat={preferences.mixtapeFormat}
+					onMixtapeFormat={setMixtapeFormat}
+					canChooseFormat={Boolean(mixtape?.streamAac)}
 					status={status}
 					playing={Boolean(active)}
 					volume={preferences.volume}

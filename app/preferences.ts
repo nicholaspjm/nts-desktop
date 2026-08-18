@@ -6,11 +6,17 @@ export type Preferences = {
 	volume: number
 	// Chosen audio output. Empty means the system default.
 	outputDevice: string
+	// Show aliases the user follows, notified when they start.
+	following: string[]
+	// Preferred mixtape delivery: the direct MP3, or AAC over HLS.
+	mixtapeFormat: "mp3" | "aac"
 }
 
 const defaults: Preferences = {
 	volume: 0.8,
 	outputDevice: "",
+	following: [],
+	mixtapeFormat: "mp3",
 }
 
 const filename = path.join(app.getPath("userData"), "preferences.json")

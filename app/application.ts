@@ -109,6 +109,17 @@ export class NTSApplication {
 			probeStream(url),
 		)
 
+		// Search results and the paste box both land here. openURL already
+		// validates that it is an nts.live show URL.
+		ipcMain.on("open-url", (_evt: IpcMainEvent, url: string) => this.openURL(url))
+
+		ipcMain.on(
+			"notify",
+			(_evt: IpcMainEvent, payload: { title: string; body: string }) => {
+				new Notification({ title: payload.title, body: payload.body }).show()
+			},
+		)
+
 		ipcMain.on("schedule", () => this.openSchedule())
 		ipcMain.on("reload", () => this.reload())
 		ipcMain.on("quit", () => app.quit())

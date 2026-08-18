@@ -7,6 +7,8 @@ import { type Preferences, PreferencesProvider } from "~/client/lib/preferences"
 const defaults: Preferences = {
 	volume: 1,
 	outputDevice: "",
+	following: [],
+	mixtapeFormat: "mp3",
 }
 
 function render(preferences: Preferences) {

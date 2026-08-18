@@ -11,6 +11,9 @@ export type Mixtape = {
 	image: string
 	icon: string
 	stream: string
+	// AAC over HLS. At a matched bitrate AAC is generally cleaner than MP3, and
+	// this is the only alternative NTS actually publishes.
+	streamAac: string
 }
 
 export type MixtapesState = {
@@ -25,6 +28,7 @@ type MixtapeData = {
 	subtitle: string
 	description: string
 	audio_stream_endpoint: string
+	audio_stream_endpoint_hls_aac?: string
 	media?: {
 		picture_medium_large?: string
 		picture_large?: string
@@ -49,6 +53,7 @@ function simplify(data: MixtapeData): Mixtape {
 			"",
 		icon: media.icon_white ?? "",
 		stream: data.audio_stream_endpoint,
+		streamAac: data.audio_stream_endpoint_hls_aac ?? "",
 	}
 }
 

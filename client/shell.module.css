@@ -757,3 +757,33 @@
 .hidden {
 	display: none;
 }
+
+/* Search */
+
+.searchRow {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 16px;
+}
+
+.searchInput {
+	flex: 1;
+	min-width: 0;
+	appearance: none;
+	background: #0d0d0d;
+	border: 1px solid #262626;
+	color: white;
+	font: inherit;
+	font-size: 15px;
+	padding: 9px 12px;
+}
+
+.searchInput:focus {
+	outline: none;
+	border-color: #e6002d;
+}
+
+.tracklist {
+	margin-top: 22px;
+	max-width: 640px;
+}

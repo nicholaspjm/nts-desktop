@@ -1,3 +1,4 @@
+import Hls from "hls.js"
 import { useCallback, useEffect, useRef } from "react"
 
 export type PlayerStatus =
@@ -32,6 +33,10 @@ const BACKOFF_MAX = 30_000
 // decode will never succeed and must not be retried forever.
 const ERR_SRC_NOT_SUPPORTED = 4
 const MAX_FORMAT_FAILURES = 5
+
+function isHls(src: string): boolean {
+	return src.includes(".m3u8")
+}
 
 function reconnectURL(src: string, attempt: number): string {
 	// Vary the URL so we open a genuinely new connection rather than having a
@@ -119,6 +124,15 @@ export function Player(props: Props) {
 				progressedAt.current = Date.now()
 				position.current = 0
 
+				// hls.js manages its own source; only the direct path swaps URLs.
+				if (isHls(src)) {
+					audio.play().then(
+						() => { reconnecting.current = false },
+						() => { reconnecting.current = false },
+					)
+					return
+				}
+
 				audio.src = reconnectURL(src, attempts.current)
 				audio.load()
 				audio.play().then(
@@ -167,6 +181,47 @@ export function Player(props: Props) {
 		[onPlay, onStop],
 	)
 
+	// hls.js only for playlist sources. Chromium cannot play HLS natively, and
+	// the direct MP3 path must stay exactly as it was, so this attaches nothing
+	// at all unless the source is a playlist.
+	useEffect(
+		function () {
+			const audio = ref.current
+			if (!audio || !src || !playing || !isHls(src)) {
+				return
+			}
+
+			if (!Hls.isSupported()) {
+				console.warn("HLS source selected but hls.js is unsupported here")
+				return
+			}
+
+			const hls = new Hls({ enableWorker: true })
+			hls.loadSource(src)
+			hls.attachMedia(audio)
+			hls.on(Hls.Events.MANIFEST_PARSED, function () {
+				audio.play().catch(() => {})
+			})
+			hls.on(Hls.Events.ERROR, function (_evt, data) {
+				if (!data.fatal) {
+					return
+				}
+				// Let hls.js try its own recovery first; the watchdog is still
+				// watching currentTime and will step in if it stays stuck.
+				if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+					hls.startLoad()
+				} else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+					hls.recoverMediaError()
+				}
+			})
+
+			return function () {
+				hls.destroy()
+			}
+		},
+		[src, playing],
+	)
+
 	useEffect(
 		function () {
 			const audio = ref.current
@@ -188,10 +243,14 @@ export function Player(props: Props) {
 			position.current = audio.currentTime
 			report("connecting")
 
-			audio.load()
-			audio.play().catch(function () {
-				reconnect()
-			})
+			// hls.js owns the element for playlist sources: calling load() here
+			// would tear its attachment down.
+			if (!isHls(src)) {
+				audio.load()
+				audio.play().catch(function () {
+					reconnect()
+				})
+			}
 
 			function noteProgress() {
 				// Read fresh: the poll below can outlive the element.
