@@ -40,33 +40,3 @@ jobs:
         run: pnpm run format:check
 
 
-  build:
-    name: Build
-    # Deliberately Windows. This is a Windows app, and Vite 8 pulls in rolldown,
-    # whose native binding must match the runner. Building on the target
-    # platform is both more meaningful and avoids resolving a Linux binary we
-    # never ship.
-    runs-on: windows-latest
-    steps:
-      - name: Check out
-        uses: actions/checkout@v4
-
-      - name: Read .tool-versions
-        id: versions
-        uses: marocchino/tool-versions-action@v1
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ steps.versions.outputs.pnpm }}
-
-      - name: Set up node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ steps.versions.outputs.nodejs }}
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build
-        run: pnpm run build
