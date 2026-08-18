@@ -1,8 +1,17 @@
 import { app } from "electron"
 
 import { NTSApplication } from "./application"
+import * as diagnostics from "./diagnostics"
 
 let application = null
+
+// A crash with nothing written down is a bug report that says "it stopped".
+process.on("uncaughtException", (error) => {
+	diagnostics.record("uncaught exception", error?.stack ?? String(error))
+})
+process.on("unhandledRejection", (reason) => {
+	diagnostics.record("unhandled rejection", String(reason))
+})
 
 async function main() {
 	// Without these the OS labels the app "Electron": app.getName() drives the

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import logo from "../logos/nts.svg"
 
 import type { ShowInfo as ArchiveShow } from "../app/show"
-import type { HistoryEntry } from "./lib/controls"
+import type { HistoryEntry, UpdateState } from "./lib/controls"
 import type { ChannelInfo, Info, ShowInfo } from "./lib/live"
 import type { Mixtape } from "./lib/mixtapes"
 import type { AudioOutput } from "./lib/outputs"
@@ -32,7 +32,14 @@ export type View =
 	| "archive"
 	| "history"
 
-export type MenuAction = "schedule" | "explore" | "reload" | "quit"
+export type MenuAction =
+	| "schedule"
+	| "explore"
+	| "reload"
+	| "quit"
+	| "report-problem"
+	| "open-releases"
+	| "open-logs"
 export type WindowAction = "minimize" | "maximize" | "close"
 
 // Everything both the bottom bar and the full-screen view need to render.
@@ -73,10 +80,11 @@ function time(date: Date): string {
 type TitleBarProps = {
 	onAction: (action: MenuAction) => void
 	onWindow: (action: WindowAction) => void
+	update: UpdateState | null
 }
 
 export function TitleBar(props: TitleBarProps) {
-	const { onAction, onWindow } = props
+	const { onAction, onWindow, update } = props
 	const [open, setOpen] = useState(false)
 	const menu = useRef<HTMLDivElement | null>(null)
 
@@ -112,9 +120,18 @@ export function TitleBar(props: TitleBarProps) {
 	const items: Array<{ id: MenuAction; label: string }> = [
 		{ id: "explore", label: "Explore on NTS" },
 		{ id: "schedule", label: "Full schedule" },
+		{ id: "report-problem", label: "Report a problem" },
+		{ id: "open-logs", label: "Show crash log" },
 		{ id: "reload", label: "Reload" },
 		{ id: "quit", label: "Quit" },
 	]
+
+	if (update?.newer) {
+		items.unshift({
+			id: "open-releases",
+			label: `Update available: ${update.latest}`,
+		})
+	}
 
 	return (
 		<header className={classnames(css.titlebar, { [css.titlebarMac]: isMac })}>
@@ -130,6 +147,7 @@ export function TitleBar(props: TitleBarProps) {
 						<circle cx="8" cy="8" r="1.4" fill="currentColor" />
 						<circle cx="13" cy="8" r="1.4" fill="currentColor" />
 					</svg>
+					{update?.newer ? <span className={css.updateDot} /> : null}
 				</button>
 				{open ? (
 					<div className={css.menu}>
@@ -138,7 +156,9 @@ export function TitleBar(props: TitleBarProps) {
 								<button
 									key={item.id}
 									type="button"
-									className={css.menuItem}
+									className={classnames(css.menuItem, {
+										[css.menuItemHighlight]: item.id === "open-releases",
+									})}
 									onClick={() => {
 										setOpen(false)
 										onAction(item.id)

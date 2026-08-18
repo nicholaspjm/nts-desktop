@@ -165,3 +165,36 @@ export function useHistory(refreshKey: number): HistoryEntry[] {
 
 	return entries
 }
+
+export type UpdateState = {
+	current: string
+	latest: string | null
+	newer: boolean
+}
+
+/**
+ * Asks the main process whether a newer release exists.
+ *
+ * Reports only. Nothing downloads or installs itself, and a failure is silent:
+ * being unable to reach GitHub is not worth interrupting listening over.
+ */
+export function useUpdateCheck(): UpdateState | null {
+	const [state, setState] = useState<UpdateState | null>(null)
+
+	useEffect(function () {
+		let cancelled = false
+		electron
+			.invoke("update-check")
+			.then(function (result: UpdateState | null) {
+				if (!cancelled && result) {
+					setState(result)
+				}
+			})
+			.catch(() => {})
+		return function () {
+			cancelled = true
+		}
+	}, [])
+
+	return state
+}

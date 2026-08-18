@@ -5,7 +5,12 @@ import "./global.css"
 import { hlsStreams, streams } from "~/lib/stream"
 
 import { electron } from "./electron"
-import { useHistory, useMediaKeys, useSleepTimer } from "./lib/controls"
+import {
+	useHistory,
+	useMediaKeys,
+	useSleepTimer,
+	useUpdateCheck,
+} from "./lib/controls"
 import { useLiveInfo } from "./lib/live"
 import { useMixtapes } from "./lib/mixtapes"
 import { useAudioOutput, useAudioOutputs } from "./lib/outputs"
@@ -192,6 +197,7 @@ export function NTS() {
 	const sleep = useSleepTimer(playing, stop, setFade)
 
 	const history = useHistory(historyKey)
+	const update = useUpdateCheck()
 
 	// Record what is playing, once it is actually playing.
 	useEffect(
@@ -375,7 +381,7 @@ export function NTS() {
 		<>
 			<Splash hide={!live.loading} />
 			<div className={css.shell}>
-				<TitleBar onAction={handleMenu} onWindow={handleWindow} />
+				<TitleBar onAction={handleMenu} onWindow={handleWindow} update={update} />
 				<Nav view={view} onView={setView} hasArchive={Boolean(show)} />
 				<main className={css.content}>
 					{view === "live" ? (

@@ -161,3 +161,10 @@ will be changed or taken down.
 ## Licence
 
 MIT, inherited from the upstream project. See [LICENSE](./LICENSE).
+
+### Third party
+
+Playback of the buffered live streams and the AAC mixtapes uses
+[hls.js](https://github.com/video-dev/hls.js), Apache-2.0 licensed, which is
+bundled into the installers. The remaining dependencies are listed in
+`package.json`.

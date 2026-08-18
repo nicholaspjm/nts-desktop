@@ -19,11 +19,13 @@ import {
 import serve from "electron-serve"
 
 import * as credentials from "./credentials"
+import * as diagnostics from "./diagnostics"
 import * as history from "./history"
 import { NTSLiveTracks } from "./live-tracks"
 import * as preferences from "./preferences"
 import { show } from "./show"
 import { probeStream } from "./stream-probe"
+import { checkForUpdate } from "./updates"
 
 import appIcon from "../logos/logo.png"
 import menubarOne from "../logos/menu-one.png"
@@ -153,6 +155,19 @@ export class NTSApplication {
 		ipcMain.handle("history", () => history.read())
 		ipcMain.on("history-clear", () => history.clear())
 
+		// Reports only: nothing is downloaded or installed.
+		ipcMain.handle("update-check", () => checkForUpdate(app.getVersion()))
+
+		ipcMain.on("report-problem", () =>
+			shell.openExternal("https://github.com/nicholaspjm/nts-desktop/issues/new"),
+		)
+		ipcMain.on("open-releases", () =>
+			shell.openExternal(
+				"https://github.com/nicholaspjm/nts-desktop/releases/latest",
+			),
+		)
+		ipcMain.on("open-logs", () => shell.showItemInFolder(diagnostics.logPath()))
+
 		ipcMain.on("schedule", () => this.openSchedule())
 		ipcMain.on("reload", () => this.reload())
 		ipcMain.on("quit", () => app.quit())
@@ -173,6 +188,19 @@ export class NTSApplication {
 		// macOS is different: removing the application menu also removes Cmd+Q,
 		// Cmd+W and clipboard shortcuts, so keep a standard minimal one there.
 		Menu.setApplicationMenu(mac ? makeAppMenu() : null)
+
+		this.window.webContents.on("render-process-gone", (_evt, details) => {
+			diagnostics.record(
+				"renderer gone",
+				`reason=${details.reason} exitCode=${details.exitCode}`,
+			)
+		})
+		this.window.webContents.on("unresponsive", () => {
+			diagnostics.record("renderer unresponsive", "window stopped responding")
+		})
+		this.window.webContents.on("preload-error", (_evt, preloadPath, error) => {
+			diagnostics.record("preload error", `${preloadPath}: ${error?.message}`)
+		})
 
 		await this.liveTracks.init()
 		await this.loadClient()
