@@ -40,15 +40,20 @@ xattr -cr "/Applications/NTS Desktop.app"
 
 Now open the app normally.
 
-That one command is needed because the app is not signed by an Apple developer
-account, which costs money every year. macOS marks anything downloaded from the
-internet as quarantined, and for unsigned apps it refuses to open them at all,
-reporting the app as **damaged** and offering to move it to the Bin. The app is
-not damaged; the command simply clears that quarantine flag.
+If you would rather not touch Terminal: try opening the app, let macOS refuse,
+then go to **System Settings > Privacy & Security**, scroll down, and click
+**Open Anyway** next to the message about NTS Desktop.
 
-If you would rather not run a Terminal command, build it yourself from source
-instead, using the steps below. Software built on your own machine is never
-quarantined.
+macOS will say it "could not verify NTS Desktop is free of malware". That is
+what it says about any app that has not been notarised by Apple, which requires
+a paid Apple developer account. It is not a finding about this app: nothing has
+been scanned and nothing suspicious was detected. The app is ad-hoc signed, so
+it is not tampered with after building, but only notarisation removes that
+message, and the source is here to read.
+
+Right clicking and choosing Open used to be enough. On macOS 15 and later Apple
+removed that shortcut for unnotarised apps, so one of the two routes above is
+now needed.
 
 ### Building it yourself
 
