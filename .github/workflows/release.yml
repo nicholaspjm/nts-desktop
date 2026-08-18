@@ -83,6 +83,11 @@ jobs:
           mkdir -p "$HOME/private_keys"
           echo "$API_KEY" | base64 --decode > "$HOME/private_keys/AuthKey.p8"
 
+          # Rules out a mangled secret before blaming the issuer for a failure.
+          if ! grep -q "BEGIN PRIVATE KEY" "$HOME/private_keys/AuthKey.p8"; then
+            echo "::warning::APPLE_API_KEY did not decode to a PEM private key. Check that the secret holds the base64 of the .p8 file."
+          fi
+
           # Apple issues two kinds of App Store Connect key and they authenticate
           # differently. A Team key carries an issuer UUID; an Individual key has
           # none at all, and passing one is a hard error rather than an ignored
@@ -110,7 +115,7 @@ jobs:
             echo "APPLE_KEYCHAIN_PROFILE=nts-desktop" >> "$GITHUB_ENV"
             echo "notarisation credentials accepted"
           else
-            echo "::warning::Apple rejected the notarisation credentials. The app will be signed but NOT notarised, so macOS will still warn on first launch."
+            echo "::warning::Apple rejected the notarisation credentials, so the app is signed but NOT notarised and macOS will still warn on first launch. APPLE_API_ISSUER is ${#API_ISSUER} characters. The Issuer ID is a 36-character UUID, found above the key table at App Store Connect, Users and Access, Integrations. Ten characters usually means a Team ID or Key ID was pasted instead."
           fi
 
       # The Windows build is still unsigned: that needs a separate certificate,
