@@ -8,7 +8,7 @@ import { electron } from "./electron"
 import { useLiveInfo } from "./lib/live"
 import { useMixtapes } from "./lib/mixtapes"
 import { useAudioOutput, useAudioOutputs } from "./lib/outputs"
-import { useSearch } from "./lib/search"
+import { type SortOrder, useSearch } from "./lib/search"
 import { usePreferences } from "./lib/preferences"
 import { useStreamHealth, useStreamInfo } from "./lib/stream-info"
 import { useEvent } from "./lib/use-event"
@@ -19,7 +19,6 @@ import { useMetadata } from "./metadata"
 
 import type { ShowInfo as ArchiveShow } from "../app/show"
 import { Help } from "./help"
-import { Login } from "./login"
 import { Mixcloud } from "./mixcloud"
 import { Notifications } from "./notifications"
 import { Offline } from "./offline"
@@ -47,19 +46,9 @@ import { Splash } from "./splash"
 import css from "./shell.module.css"
 
 export function App() {
-	const [route, setRoute] = useState<"app" | "login">("app")
-
-	useEvent("login", () => setRoute("login"), [setRoute])
-	useEvent("close", () => setRoute("app"), [setRoute])
-
-	const handleLoginClose = useCallback(function () {
-		setRoute("app")
-	}, [])
-
 	return (
 		<>
 			<NTS />
-			<Login onClose={handleLoginClose} show={route === "login"} />
 			<Notifications />
 		</>
 	)
@@ -83,6 +72,7 @@ export function NTS() {
 	const [detailedStream, setDetailedStream] = useState(false)
 	const [query, setQuery] = useState("")
 	const [muted, setMuted] = useState(false)
+	const [sortOrder, setSortOrder] = useState<SortOrder>("relevance")
 
 	const { preferences, updatePreferences } = usePreferences()
 	const isOffline = useOffline()
@@ -216,50 +206,6 @@ export function NTS() {
 		electron.send("tracklist", id)
 	}, [])
 
-	const following = preferences.following
-	const toggleFollow = useCallback(
-		function (alias: string) {
-			updatePreferences(function (prefs) {
-				const has = prefs.following.includes(alias)
-				return {
-					...prefs,
-					following: has
-						? prefs.following.filter((a) => a !== alias)
-						: [...prefs.following, alias],
-				}
-			})
-		},
-		[updatePreferences],
-	)
-
-	// Notify when a followed show starts. Keyed by alias plus start time so a
-	// single broadcast never notifies twice, including across a schedule refetch.
-	const notified = useRef<Set<string>>(new Set())
-	useEffect(
-		function () {
-			if (!live.data || following.length === 0) {
-				return
-			}
-
-			for (const channel of [live.data.channel1, live.data.channel2]) {
-				const show = channel.now
-				if (!show.showAlias || !following.includes(show.showAlias)) {
-					continue
-				}
-				const key = `${show.showAlias}@${show.starts.toISOString()}`
-				if (notified.current.has(key)) {
-					continue
-				}
-				notified.current.add(key)
-				electron.send("notify", {
-					title: `${show.name} is on air`,
-					body: show.location ? `NTS · ${show.location}` : "NTS",
-				})
-			}
-		},
-		[live.data, following],
-	)
-
 	const openArchive = useCallback(function (url: string) {
 		electron.send("open-url", url)
 	}, [])
@@ -303,6 +249,8 @@ export function NTS() {
 					image: "",
 					description: "",
 					genres: [],
+					moods: [],
+					showAlias: "",
 					starts: null,
 					ends: null,
 				}
@@ -315,6 +263,8 @@ export function NTS() {
 					image: mixtape?.image ?? "",
 					description: mixtape?.description ?? "",
 					genres: [],
+					moods: [],
+					showAlias: "",
 					starts: null,
 					ends: null,
 				}
@@ -330,6 +280,8 @@ export function NTS() {
 				image: show?.image ?? "",
 				description: show?.description ?? "",
 				genres: show?.genres ?? [],
+				moods: show?.moods ?? [],
+				showAlias: show?.showAlias ?? "",
 				starts: show?.starts ?? null,
 				ends: show?.ends ?? null,
 			}
@@ -348,11 +300,9 @@ export function NTS() {
 						<LiveView
 							live={live.data}
 							source={active}
-							following={following}
 							onPlay={play}
 							onStop={stop}
 							onTracklist={handleTracklist}
-							onFollow={toggleFollow}
 						/>
 					) : null}
 					{view === "mixtapes" ? (
@@ -370,6 +320,8 @@ export function NTS() {
 							query={query}
 							onQuery={setQuery}
 							state={search}
+							order={sortOrder}
+							onOrder={setSortOrder}
 							onOpen={openArchive}
 						/>
 					) : null}
@@ -421,6 +373,9 @@ export function NTS() {
 					volume={preferences.volume}
 					onToggle={toggle}
 					onVolume={setVolume}
+					onShowPage={(alias) =>
+						electron.send("open-external", `https://www.nts.live/shows/${alias}`)
+					}
 					onClose={() => setIsFullScreen(false)}
 				/>
 			) : null}

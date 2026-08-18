@@ -7,7 +7,12 @@ import type { ChannelInfo, Info, ShowInfo } from "./lib/live"
 import type { ShowInfo as ArchiveShow } from "../app/show"
 import type { Mixtape } from "./lib/mixtapes"
 import type { AudioOutput } from "./lib/outputs"
-import { type SearchState, isShowURL } from "./lib/search"
+import {
+	type SearchState,
+	type SortOrder,
+	isShowURL,
+	sortResults,
+} from "./lib/search"
 import { type StreamHealth, type StreamProbe, smooth } from "./lib/stream-info"
 import type { PlayerStatus } from "./player"
 
@@ -20,7 +25,7 @@ export type Source =
 
 export type View = "live" | "mixtapes" | "schedule" | "search" | "archive"
 
-export type MenuAction = "schedule" | "explore" | "my-nts" | "reload" | "quit"
+export type MenuAction = "schedule" | "explore" | "reload" | "quit"
 export type WindowAction = "minimize" | "maximize" | "close"
 
 // Everything both the bottom bar and the full-screen view need to render.
@@ -30,6 +35,9 @@ export type NowPlaying = {
 	image: string
 	description: string
 	genres: string[]
+	moods: string[]
+	// Empty for mixtapes, which have no show page.
+	showAlias: string
 	starts: Date | null
 	ends: Date | null
 }
@@ -97,7 +105,6 @@ export function TitleBar(props: TitleBarProps) {
 	const items: Array<{ id: MenuAction; label: string }> = [
 		{ id: "explore", label: "Explore on NTS" },
 		{ id: "schedule", label: "Full schedule" },
-		{ id: "my-nts", label: "My NTS" },
 		{ id: "reload", label: "Reload" },
 		{ id: "quit", label: "Quit" },
 	]
@@ -230,16 +237,13 @@ type ChannelCardProps = {
 	channel: 1 | 2
 	info: ChannelInfo | undefined
 	active: boolean
-	following: boolean
 	onPlay: () => void
 	onStop: () => void
 	onTracklist: () => void
-	onFollow: () => void
 }
 
 export function ChannelCard(props: ChannelCardProps) {
-	const { channel, info, active, following, onPlay, onStop, onTracklist, onFollow } =
-		props
+	const { channel, info, active, onPlay, onStop, onTracklist } = props
 	const now = info?.now
 
 	return (
@@ -283,16 +287,6 @@ export function ChannelCard(props: ChannelCardProps) {
 					<button type="button" className={css.button} onClick={onTracklist}>
 						Tracklist
 					</button>
-					{now?.showAlias ? (
-						<button
-							type="button"
-							className={classnames(css.button, { [css.buttonActive]: following })}
-							onClick={onFollow}
-							title="Notify me when this show starts"
-						>
-							{following ? "Following" : "Follow"}
-						</button>
-					) : null}
 				</div>
 				{info?.next ? (
 					<div className={css.cardMeta}>
@@ -307,15 +301,13 @@ export function ChannelCard(props: ChannelCardProps) {
 type LiveProps = {
 	live: Info | null
 	source: Source | null
-	following: string[]
 	onPlay: (source: Source) => void
 	onStop: () => void
 	onTracklist: (channel: 1 | 2) => void
-	onFollow: (alias: string) => void
 }
 
 export function LiveView(props: LiveProps) {
-	const { live, source, following, onPlay, onStop, onTracklist, onFollow } = props
+	const { live, source, onPlay, onStop, onTracklist } = props
 
 	return (
 		<>
@@ -323,18 +315,15 @@ export function LiveView(props: LiveProps) {
 			<div className={css.channels}>
 				{([1, 2] as const).map(function (id) {
 					const info = id === 1 ? live?.channel1 : live?.channel2
-					const alias = info?.now.showAlias ?? ""
 					return (
 						<ChannelCard
 							key={id}
 							channel={id}
 							info={info}
 							active={sameSource(source, { kind: "channel", id })}
-							following={Boolean(alias) && following.includes(alias)}
 							onPlay={() => onPlay({ kind: "channel", id })}
 							onStop={onStop}
 							onTracklist={() => onTracklist(id)}
-							onFollow={() => alias && onFollow(alias)}
 						/>
 					)
 				})}
@@ -446,12 +435,15 @@ type SearchProps = {
 	query: string
 	onQuery: (query: string) => void
 	state: SearchState
+	order: SortOrder
+	onOrder: (order: SortOrder) => void
 	onOpen: (url: string) => void
 }
 
 export function SearchView(props: SearchProps) {
-	const { query, onQuery, state, onOpen } = props
+	const { query, onQuery, state, order, onOrder, onOpen } = props
 	const pasted = isShowURL(query)
+	const results = sortResults(state.results, order)
 
 	return (
 		<>
@@ -478,6 +470,18 @@ export function SearchView(props: SearchProps) {
 						Open
 					</button>
 				) : null}
+				{state.results.length > 0 ? (
+					<select
+						className={css.barSelect}
+						value={order}
+						aria-label="Sort results"
+						onChange={(e) => onOrder(e.target.value as SortOrder)}
+					>
+						<option value="relevance">Relevance</option>
+						<option value="newest">Newest</option>
+						<option value="oldest">Oldest</option>
+					</select>
+				) : null}
 			</div>
 
 			{pasted ? (
@@ -492,7 +496,7 @@ export function SearchView(props: SearchProps) {
 			) : null}
 
 			<div className={css.grid}>
-				{state.results.map(function (result) {
+				{results.map(function (result) {
 					return (
 						<button
 							key={result.url}
@@ -861,6 +865,7 @@ type FullProps = {
 	volume: number
 	onToggle: () => void
 	onVolume: (volume: number) => void
+	onShowPage: (alias: string) => void
 	onClose: () => void
 }
 
@@ -883,6 +888,7 @@ export function FullScreen(props: FullProps) {
 		volume,
 		onToggle,
 		onVolume,
+		onShowPage,
 		onClose,
 	} = props
 
@@ -942,11 +948,16 @@ export function FullScreen(props: FullProps) {
 					{now.description ? (
 						<p className={css.fullDesc}>{now.description}</p>
 					) : null}
-					{now.genres.length > 0 ? (
+					{now.genres.length > 0 || now.moods.length > 0 ? (
 						<div className={css.tags}>
 							{now.genres.slice(0, 6).map((g) => (
 								<span key={g} className={css.tag}>
 									{g}
+								</span>
+							))}
+							{now.moods.slice(0, 4).map((m) => (
+								<span key={m} className={classnames(css.tag, css.tagMood)}>
+									{m}
 								</span>
 							))}
 						</div>
@@ -955,6 +966,15 @@ export function FullScreen(props: FullProps) {
 						<button type="button" className={css.button} onClick={onToggle}>
 							{playing ? "Stop" : "Play"}
 						</button>
+						{now.showAlias ? (
+							<button
+								type="button"
+								className={css.button}
+								onClick={() => onShowPage(now.showAlias)}
+							>
+								Show page
+							</button>
+						) : null}
 						<input
 							className={css.volume}
 							type="range"

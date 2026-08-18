@@ -35,7 +35,7 @@
 	appearance: none;
 	background: none;
 	border: none;
-	color: #8a8a8a;
+	color: #999999;
 	padding: 5px 9px;
 	cursor: pointer;
 	display: flex;
@@ -50,7 +50,7 @@
 }
 
 .closeButton:hover {
-	background: #e6002d;
+	background: #e81717;
 	color: white;
 }
 
@@ -71,7 +71,7 @@
 	z-index: 200;
 	min-width: 168px;
 	background: #121212;
-	border: 1px solid #2a2a2a;
+	border: 1px solid #333333;
 	padding: 4px 0;
 	display: flex;
 	flex-direction: column;
@@ -81,7 +81,7 @@
 	appearance: none;
 	background: none;
 	border: none;
-	color: #cfcfcf;
+	color: #cccccc;
 	font: inherit;
 	font-size: 14px;
 	text-align: left;
@@ -91,7 +91,7 @@
 }
 
 .menuItem:hover {
-	background: #1e1e1e;
+	background: #222222;
 	color: white;
 }
 
@@ -123,7 +123,7 @@
 	appearance: none;
 	background: none;
 	border: none;
-	color: #8a8a8a;
+	color: #999999;
 	font: inherit;
 	font-size: 16px;
 	text-align: left;
@@ -139,7 +139,7 @@
 
 .navItemActive {
 	color: white;
-	box-shadow: inset 2px 0 0 #e6002d;
+	box-shadow: inset 2px 0 0 #e81717;
 }
 
 .navSpacer {
@@ -158,7 +158,7 @@
 	font-size: 13px;
 	text-transform: uppercase;
 	letter-spacing: 0.12em;
-	color: #7a7a7a;
+	color: #999999;
 	margin: 0 0 14px;
 }
 
@@ -170,7 +170,7 @@
 
 .card {
 	border: 1px solid #202020;
-	background: #0b0b0b;
+	background: #121212;
 	display: flex;
 	flex-direction: column;
 	min-width: 0;
@@ -186,7 +186,7 @@
 	position: absolute;
 	top: 10px;
 	left: 10px;
-	background: #e6002d;
+	background: #e81717;
 	color: white;
 	font-size: 11px;
 	letter-spacing: 0.1em;
@@ -211,7 +211,7 @@
 
 .cardMeta {
 	font-size: 13px;
-	color: #8a8a8a;
+	color: #999999;
 	display: flex;
 	gap: 9px;
 	flex-wrap: wrap;
@@ -219,7 +219,7 @@
 
 .cardDesc {
 	font-size: 13px;
-	color: #a5a5a5;
+	color: #cccccc;
 	margin: 0;
 	display: -webkit-box;
 	-webkit-line-clamp: 3;
@@ -237,8 +237,8 @@
 	font-size: 11px;
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
-	color: #9a9a9a;
-	border: 1px solid #2b2b2b;
+	color: #999999;
+	border: 1px solid #333333;
 	padding: 2px 6px;
 }
 
@@ -266,8 +266,8 @@
 }
 
 .buttonActive {
-	background: #e6002d;
-	border-color: #e6002d;
+	background: #e81717;
+	border-color: #e81717;
 }
 
 /* Mixtapes */
@@ -283,7 +283,7 @@
 	font: inherit;
 	text-align: left;
 	border: 1px solid #202020;
-	background: #0b0b0b;
+	background: #121212;
 	color: white;
 	cursor: pointer;
 	padding: 0;
@@ -297,7 +297,7 @@
 }
 
 .tileActive {
-	border-color: #e6002d;
+	border-color: #e81717;
 }
 
 .tileArt {
@@ -317,7 +317,7 @@
 
 .tileSub {
 	font-size: 12px;
-	color: #8a8a8a;
+	color: #999999;
 	margin: 0;
 	display: -webkit-box;
 	-webkit-line-clamp: 2;
@@ -343,7 +343,7 @@
 }
 
 .rowTime {
-	color: #7a7a7a;
+	color: #999999;
 	flex: none;
 	width: 84px;
 	font-variant-numeric: tabular-nums;
@@ -355,7 +355,7 @@
 }
 
 .rowNow {
-	color: #e6002d;
+	color: #e81717;
 }
 
 /* Now playing bar */
@@ -363,7 +363,7 @@
 .bar {
 	grid-area: bar;
 	border-top: 1px solid #202020;
-	background: #0b0b0b;
+	background: #121212;
 	display: flex;
 	align-items: center;
 	gap: 14px;
@@ -460,7 +460,7 @@
 	font-size: 11px;
 	text-transform: uppercase;
 	letter-spacing: 0.12em;
-	color: #8a8a8a;
+	color: #999999;
 }
 
 .fullTitle {
@@ -475,13 +475,13 @@
 	gap: 14px;
 	flex-wrap: wrap;
 	font-size: 15px;
-	color: #9a9a9a;
+	color: #999999;
 }
 
 .fullDesc {
 	font-size: 15px;
 	line-height: 1.45;
-	color: #b5b5b5;
+	color: #cccccc;
 	margin: 0;
 	display: -webkit-box;
 	-webkit-line-clamp: 6;
@@ -500,7 +500,7 @@
 
 .panel {
 	margin-top: 10px;
-	border-top: 1px solid #1e1e1e;
+	border-top: 1px solid #222222;
 	padding-top: 14px;
 }
 
@@ -519,8 +519,8 @@
 .panelToggle {
 	appearance: none;
 	background: none;
-	border: 1px solid #2b2b2b;
-	color: #8a8a8a;
+	border: 1px solid #333333;
+	color: #999999;
 	font: inherit;
 	font-size: 10px;
 	text-transform: uppercase;
@@ -542,7 +542,7 @@
 
 .panelSub {
 	font-size: 12px;
-	color: #8a8a8a;
+	color: #999999;
 	margin: 2px 0 9px;
 	font-variant-numeric: tabular-nums;
 }
@@ -566,14 +566,14 @@
 .compareLabel {
 	flex: none;
 	width: 132px;
-	color: #6a6a6a;
+	color: #666666;
 	text-transform: uppercase;
 	font-size: 10px;
 	letter-spacing: 0.09em;
 }
 
 .compareValue {
-	color: #c5c5c5;
+	color: #cccccc;
 	overflow-wrap: anywhere;
 }
 
@@ -601,17 +601,18 @@
 	font-size: 10px;
 	text-transform: uppercase;
 	letter-spacing: 0.09em;
-	color: #6a6a6a;
+	color: #666666;
 	white-space: nowrap;
 }
 
 .barSelect {
 	flex: none;
 	max-width: 180px;
+	color-scheme: dark;
 	appearance: none;
 	background: none;
-	border: 1px solid #262626;
-	color: #a5a5a5;
+	border: 1px solid #333333;
+	color: #cccccc;
 	font: inherit;
 	font-size: 12px;
 	padding: 5px 7px;
@@ -634,9 +635,10 @@
 .select {
 	flex: 1;
 	min-width: 0;
+	color-scheme: dark;
 	appearance: none;
 	background: #121212;
-	border: 1px solid #2b2b2b;
+	border: 1px solid #333333;
 	color: white;
 	font: inherit;
 	font-size: 13px;
@@ -652,13 +654,13 @@
 	display: block;
 	width: 100%;
 	height: 52px;
-	background: #0d0d0d;
+	background: #121212;
 	border: 1px solid #1c1c1c;
 }
 
 .graphLabel {
 	font-size: 11px;
-	color: #6a6a6a;
+	color: #666666;
 	margin-top: 5px;
 	letter-spacing: 0.04em;
 }
@@ -678,7 +680,7 @@
 	font-size: 10px;
 	text-transform: uppercase;
 	letter-spacing: 0.11em;
-	color: #6a6a6a;
+	color: #666666;
 }
 
 .statValue {
@@ -693,7 +695,7 @@
 .panelFoot {
 	margin-top: 10px;
 	font-size: 11px;
-	color: #5e5e5e;
+	color: #666666;
 	overflow-wrap: anywhere;
 }
 
@@ -730,7 +732,7 @@
 
 .barSub {
 	font-size: 12px;
-	color: #8a8a8a;
+	color: #999999;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -740,7 +742,7 @@
 	font-size: 11px;
 	text-transform: uppercase;
 	letter-spacing: 0.09em;
-	color: #7a7a7a;
+	color: #999999;
 	flex: none;
 	display: flex;
 	align-items: center;
@@ -764,7 +766,7 @@
 }
 
 .dotError {
-	background: #e6002d;
+	background: #e81717;
 }
 
 @keyframes pulse {
@@ -775,12 +777,34 @@
 
 .volume {
 	flex: none;
-	width: 92px;
-	accent-color: #e6002d;
+	width: 88px;
+	height: 12px;
+	appearance: none;
+	background: none;
+	cursor: pointer;
+}
+
+.volume::-webkit-slider-runnable-track {
+	height: 2px;
+	background: #333333;
+}
+
+.volume::-webkit-slider-thumb {
+	appearance: none;
+	width: 3px;
+	height: 12px;
+	margin-top: -5px;
+	background: white;
+	border: none;
+	border-radius: 0;
+}
+
+.volume:hover::-webkit-slider-runnable-track {
+	background: #555555;
 }
 
 .empty {
-	color: #6a6a6a;
+	color: #666666;
 	font-size: 14px;
 }
 
@@ -807,8 +831,8 @@
 	flex: 1;
 	min-width: 0;
 	appearance: none;
-	background: #0d0d0d;
-	border: 1px solid #262626;
+	background: #121212;
+	border: 1px solid #333333;
 	color: white;
 	font: inherit;
 	font-size: 15px;
@@ -817,7 +841,7 @@
 
 .searchInput:focus {
 	outline: none;
-	border-color: #e6002d;
+	border-color: #e81717;
 }
 
 .tracklist {
@@ -839,9 +863,9 @@
 	font-size: 12px;
 	width: 26px;
 	height: 26px;
-	border: 1px solid #2b2b2b;
+	border: 1px solid #333333;
 	background: none;
-	color: #8a8a8a;
+	color: #999999;
 	cursor: pointer;
 	font-variant-numeric: tabular-nums;
 }
@@ -852,7 +876,12 @@
 }
 
 .chipActive {
-	background: #e6002d;
-	border-color: #e6002d;
+	background: #e81717;
+	border-color: #e81717;
 	color: white;
+}
+
+.tagMood {
+	color: #666666;
+	border-color: #222222;
 }

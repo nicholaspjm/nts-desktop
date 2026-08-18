@@ -1,97 +1,115 @@
-<img src="./screens/icon.png" width="144" height="144" />
+<img src="./logos/logo.png" width="120" height="120" alt="NTS" />
 
 # NTS Desktop
 
-[![CI/CD](https://github.com/romeovs/nts-desktop/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/romeovs/nts-desktop/actions/workflows/ci-cd.yml)
+An unofficial desktop player for [NTS Radio](https://www.nts.live/), built for
+uninterrupted background listening on Windows and macOS.
 
-An unofficial desktop app for NTS built in Electron.
+Not affiliated with, endorsed by, or supported by NTS. Please do not report bugs
+in this app to them.
 
-## Usage
+## Origin
 
-- Click the NTS logo in the menubar to open the player.
-- Use the left and right buttons on the player to navigate between channels. You
-  can also use the arrow keys.
-- Click the play/stop button on the live streams to play them. Spacebar works
-  too.
-- On the live streams click the tracklist button in to top right corner to open
-  the live tracklist in the browser. (This will only work if you are an [NTS
-  Supporter](https://www.nts.live/supporters)).
-- Drop the link from the browser to an archive show on the menubar icon to play
-  it, `.webloc` files work too.
-- On the archive screen, you can scroll down to reveal the controls and
-  tracklist.
-- Click on a tracklist item to copy the information.
-- Press `⌘Q` when the window is open.
-- You can refresh the app with `⌘R`
-- `ctrl + N` will open NTS Desktop
-- Pressing `T` when the window is open will open the tracklist
-- Pressing `C` when the window is open will open the chat window for that
-  channel
-- Pressing `1` or `2` when the window is open will start playing the
-  corresponding channel
-- Pressing `-` and `+` will control the volume of the player
+This is a fork of **[romeovs/nts-desktop](https://github.com/romeovs/nts-desktop)**
+by Romeo Van Snick, MIT licensed. That project is a macOS menubar app, and this
+fork began as a Windows port of it.
 
-<img src="./screens/rec1.gif" width="400" />
-<img src="./screens/rec2.gif" width="400" />
-<img src="./screens/rec3.gif" width="400" />
+It has since diverged substantially: the menubar popup became a full window, and
+live channels, Infinite Mixtapes, the schedule, archive search and playback,
+stream diagnostics and output device selection were added. The original author's
+work is the foundation, and the MIT licence and copyright are retained in
+[LICENSE](./LICENSE).
 
-## Installation
+## What it does
 
-Go to the [Releases Page](https://github.com/romeovs/nts-desktop/releases) and
-fetch the `.dmg` file from the latest release.
+- Both live channels at once, with artwork, times, location, description, genre
+  and mood tags
+- All Infinite Mixtapes, with an optional AAC stream where NTS publishes one
+- The full 18 slot schedule for both channels
+- Archive search and playback, including pasting an `nts.live` show link, with
+  the show's tracklist
+- A reconnect watchdog, because the streams are plain continuous connections
+  that otherwise go quiet and never resume
+- Stream diagnostics: bitrate, codec, sample rate and channel mode decoded from
+  the audio itself, plus a buffer history graph
+- Audio output device selection
 
-Open the disk image and drag the `NTS Desktop` app to `Applications` and open
-it.
+## Running it
 
-The first time you open the app, it will show an erro because the app isn't
-signed. I do not have a Mac Developer license.
-
-To open the app anyway, you can:
+Requires Node 20+. `make` is not needed.
 
 ```
-System Preferences > Security & Privacy > General > Open Anyway
+npx pnpm@10 install
+npx pnpm@10 start
 ```
 
-I have only tested this app on macOS, so I can't guarantee it works on Linux or
-Windows. If people want to help me port it over, shoot me a message, PR's are welcome!
-
-## Local Development
-
-The project is structured as follows:
+To build an installer into `bundle/`:
 
 ```
-./
-  src/
-    main.ts     # The electron main file
-    preload.js  # A setup file for the browser context
-    client/     # The electron renderer files
-      main.ts
-      ...
+npx pnpm@10 dist
 ```
 
-To start the app in developement mode, run:
+See [WINDOWS.md](./WINDOWS.md) for the Windows specifics and known limitations.
 
-```
-make dev
-```
+## How this app gets its data, and the limits it keeps
 
-You can now start editing the renderer files, changes will automatically
-take effect on save.
+NTS publishes no public API documentation. Everything here uses the same
+endpoints the nts.live website calls from an ordinary browser session, found by
+watching the site's own network requests. That makes it undocumented rather than
+private, and it can change without notice. These are the rules this app holds
+itself to.
 
-Note that changes to the main process (`src/main.ts` and `src/preload.js`)
-require a restart to take effect.
+### What it reads
 
-To build the application run:
+| Purpose | Endpoint |
+| --- | --- |
+| Live now and schedule | `www.nts.live/api/v2/live` |
+| Infinite Mixtapes | `www.nts.live/api/v2/mixtapes` |
+| Archive search | `www.nts.live/api/v2/search` |
+| A single archive show | `www.nts.live/api/v2/shows/…` |
+| Audio | `stream-relay-geo.ntslive.net`, `stream-mixtape-geo.ntslive.net`, and the `radiomast.io` CDN they redirect to |
 
-```
-make build app
-```
+### The limits
 
-The app will now be in `bundle/mac-universal/NTS Desktop.app`.
+**Only what a browser would fetch anyway.** Every request is one the website
+itself makes. No endpoint is reached by guessing at internal or admin routes,
+and nothing is accessed that a logged out visitor could not already load.
 
-## Acknowledgement
+**No authentication, and no working around it.** The app signs into nothing. NTS
+gates some features behind an NTS Supporter subscription, most visibly live
+tracklists. Those stay gated: the app opens the real NTS page and asks you to
+sign in there, rather than trying to reconstruct the data another way. When the
+live stream's ICY metadata turned out to carry an empty track title, that was
+reported as a gap rather than filled by scraping something else.
 
-The main idea for the app came from the excellent
-[nts-desktop-app](https://github.com/tedigc/nts-desktop-app), the implementation
-of which is way simpler and more elegant, but lacks some of the features I
-wanted.
+**Streams are played, never captured.** Audio is streamed for immediate
+listening exactly as the website does. The app does not record, cache to disk,
+re-host or redistribute any audio, and does not download archive shows. Archive
+playback uses the same Mixcloud and SoundCloud players NTS embeds, so plays are
+counted by those services as normal.
+
+**Light on their servers.** Schedule polling is driven by when the current show
+actually ends rather than a busy timer. Search is debounced so typing does not
+fire a request per keystroke. The stream probe reads roughly 64 KB and then
+aborts the connection instead of leaving a second audio stream open. Nothing is
+crawled in bulk and no endpoint is polled in a tight loop.
+
+**Their words and pictures stay theirs.** Show titles, descriptions, artwork and
+tracklists are displayed as NTS serves them, attributed to NTS, and are not
+altered or passed off as this project's own. Artwork is loaded from their CDN
+rather than copied into this repository.
+
+**Attribution and identity.** The app is clearly labelled unofficial. The NTS
+name and logo identify the service it plays and imply no endorsement. The mark
+in `logos/nts.svg` is taken from the NTS site header for that identification
+only, and remains NTS's trademark.
+
+### If NTS would rather this did not exist
+
+This is a personal listening client, written because the browser player kept
+dropping out. If anyone at NTS objects to any part of it, open an issue and it
+will be changed or taken down.
+
+## Licence
+
+MIT, inherited from the upstream project. See [LICENSE](./LICENSE).

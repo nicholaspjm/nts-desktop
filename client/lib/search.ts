@@ -9,6 +9,8 @@ export type SearchResult = {
 	image: string
 }
 
+export type SortOrder = "relevance" | "newest" | "oldest"
+
 export type SearchState = {
 	results: SearchResult[]
 	loading: boolean
@@ -107,6 +109,30 @@ export function useSearch(query: string): SearchState {
 	)
 
 	return state
+}
+
+/**
+ * Sorts results client side.
+ *
+ * The endpoint accepts no sort parameter: sort, order and every variant are
+ * ignored and return identical results. So this reorders the page already
+ * fetched, not the whole archive.
+ */
+export function sortResults(
+	results: SearchResult[],
+	order: SortOrder,
+): SearchResult[] {
+	if (order === "relevance") {
+		return results
+	}
+
+	const withTime = results.map(function (result) {
+		const time = Date.parse(result.date)
+		return { result, time: Number.isNaN(time) ? 0 : time }
+	})
+
+	withTime.sort((a, b) => (order === "newest" ? b.time - a.time : a.time - b.time))
+	return withTime.map((x) => x.result)
 }
 
 /** True for anything that looks like an NTS archive show link. */

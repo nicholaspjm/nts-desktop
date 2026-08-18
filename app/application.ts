@@ -120,6 +120,13 @@ export class NTSApplication {
 			},
 		)
 
+		ipcMain.on("open-external", (_evt: IpcMainEvent, url: string) => {
+			// Only ever hand nts.live links to the system browser.
+			if (url.startsWith("https://www.nts.live/")) {
+				shell.openExternal(url)
+			}
+		})
+
 		ipcMain.on("schedule", () => this.openSchedule())
 		ipcMain.on("reload", () => this.reload())
 		ipcMain.on("quit", () => app.quit())
