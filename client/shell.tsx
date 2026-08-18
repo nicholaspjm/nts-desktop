@@ -267,11 +267,11 @@ type ChannelCardProps = {
 	active: boolean
 	onPlay: () => void
 	onStop: () => void
-	onTracklist: () => void
+	onOpenNTS: () => void
 }
 
 export function ChannelCard(props: ChannelCardProps) {
-	const { channel, info, active, onPlay, onStop, onTracklist } = props
+	const { channel, info, active, onPlay, onStop, onOpenNTS } = props
 	const now = info?.now
 
 	return (
@@ -312,9 +312,11 @@ export function ChannelCard(props: ChannelCardProps) {
 					>
 						{active ? "Stop" : "Play"}
 					</button>
-					<button type="button" className={css.button} onClick={onTracklist}>
-						Tracklist
-					</button>
+					{now?.showAlias ? (
+						<button type="button" className={css.button} onClick={onOpenNTS}>
+							Open on NTS
+						</button>
+					) : null}
 				</div>
 				{info?.next ? (
 					<div className={css.cardMeta}>
@@ -331,11 +333,11 @@ type LiveProps = {
 	source: Source | null
 	onPlay: (source: Source) => void
 	onStop: () => void
-	onTracklist: (channel: 1 | 2) => void
+	onOpenNTS: (channel: 1 | 2) => void
 }
 
 export function LiveView(props: LiveProps) {
-	const { live, source, onPlay, onStop, onTracklist } = props
+	const { live, source, onPlay, onStop, onOpenNTS } = props
 
 	return (
 		<>
@@ -351,7 +353,7 @@ export function LiveView(props: LiveProps) {
 							active={sameSource(source, { kind: "channel", id })}
 							onPlay={() => onPlay({ kind: "channel", id })}
 							onStop={onStop}
-							onTracklist={() => onTracklist(id)}
+							onOpenNTS={() => onOpenNTS(id)}
 						/>
 					)
 				})}

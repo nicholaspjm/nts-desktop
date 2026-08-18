@@ -269,9 +269,22 @@ export function NTS() {
 		setLooped(0)
 	})
 
-	const handleTracklist = useCallback(function (id: 1 | 2) {
-		electron.send("tracklist", id)
-	}, [])
+	// Opens the episode currently on air, falling back to the show's own page if
+	// the API has not given this broadcast an episode alias yet.
+	const openOnNTS = useCallback(
+		function (id: 1 | 2) {
+			const info = id === 1 ? live.data?.channel1 : live.data?.channel2
+			const show = info?.now
+			if (!show?.showAlias) {
+				return
+			}
+			const url = show.episodeAlias
+				? `https://www.nts.live/shows/${show.showAlias}/episodes/${show.episodeAlias}`
+				: `https://www.nts.live/shows/${show.showAlias}`
+			electron.send("open-external", url)
+		},
+		[live.data],
+	)
 
 	const openArchive = useCallback(function (url: string) {
 		electron.send("open-url", url)
@@ -390,7 +403,7 @@ export function NTS() {
 							source={active}
 							onPlay={play}
 							onStop={stop}
-							onTracklist={handleTracklist}
+							onOpenNTS={openOnNTS}
 						/>
 					) : null}
 					{view === "mixtapes" ? (

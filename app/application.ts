@@ -40,7 +40,6 @@ let quitting = false
 
 export class NTSApplication {
 	window: BrowserWindow
-	tracklist: BrowserWindow | null = null
 	tray: Tray
 	evts: EventEmitter
 	production: boolean
@@ -71,9 +70,6 @@ export class NTSApplication {
 		ipcMain.on("init", this.syncPreferences.bind(this))
 
 		ipcMain.on("close", () => this.close())
-		ipcMain.on("tracklist", (_evt: IpcMainEvent, channel: number | string) =>
-			this.openTracklist(channel),
-		)
 		ipcMain.on("my-nts", () => this.openMyNTS())
 		ipcMain.on("explore", () => this.openExplore())
 		ipcMain.on("playing", this.handlePlaying.bind(this))
@@ -341,41 +337,6 @@ export class NTSApplication {
 
 	openAbout() {
 		shell.openExternal("https://github.com/romeovs/nts-desktop")
-	}
-
-	openTracklist(channel: number | string) {
-		const url = `https://www.nts.live/live-tracklist/${channel}`
-
-		if (this.tracklist && !this.tracklist.isDestroyed()) {
-			this.tracklist.loadURL(url)
-			this.tracklist.show()
-			this.tracklist.focus()
-			return
-		}
-
-		// Kept inside the app rather than thrown at the default browser. This
-		// loads nts.live directly, so it gets no preload and stays sandboxed.
-		const window = new BrowserWindow({
-			width: 460,
-			height: 760,
-			parent: this.window,
-			title: "NTS Tracklist",
-			backgroundColor: "#000000",
-			autoHideMenuBar: true,
-			webPreferences: {
-				nodeIntegration: false,
-				contextIsolation: true,
-				sandbox: true,
-			},
-		})
-
-		window.setMenu(null)
-		window.loadURL(url)
-		window.on("closed", () => {
-			this.tracklist = null
-		})
-
-		this.tracklist = window
 	}
 
 	openMyNTS() {
