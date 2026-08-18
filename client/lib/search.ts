@@ -75,11 +75,8 @@ export function useSearch(query: string): SearchState {
 				// `version=2` and an explicit `types[]` are both required. Without
 				// them the endpoint ignores the query entirely and hands back a
 				// recent-episodes feed, which would make this box quietly lie.
-				const url =
-					"https://www.nts.live/api/v2/search" +
-					`?q=${encodeURIComponent(trimmed)}` +
-					"&version=2&offset=0&limit=24" +
-					"&types%5B%5D=episode"
+				const query = encodeURIComponent(trimmed)
+				const url = `https://www.nts.live/api/v2/search?q=${query}&version=2&offset=0&limit=24&types%5B%5D=episode`
 
 				fetch(url, { signal: controller.signal })
 					.then((resp) => resp.json())

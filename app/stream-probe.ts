@@ -30,10 +30,40 @@ const LAYER = [null, "III", "II", "I"] as const
 
 // [version group][bitrate index], kbps. Version group 0 = MPEG-1.
 const BITRATES_V1_L3 = [
-	null, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, null,
+	null,
+	32,
+	40,
+	48,
+	56,
+	64,
+	80,
+	96,
+	112,
+	128,
+	160,
+	192,
+	224,
+	256,
+	320,
+	null,
 ]
 const BITRATES_V2_L3 = [
-	null, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, null,
+	null,
+	8,
+	16,
+	24,
+	32,
+	40,
+	48,
+	56,
+	64,
+	80,
+	96,
+	112,
+	128,
+	144,
+	160,
+	null,
 ]
 
 const SAMPLE_RATES: Record<string, number[]> = {

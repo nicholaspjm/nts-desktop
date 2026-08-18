@@ -1,178 +1,47 @@
-name: CI/CD
+name: CI
 on:
   pull_request: {}
   push:
     branches:
       - main
-    tags:
-      - v*.*.*
+
 jobs:
-  typecheck:
-    name: Typecheck
+  checks:
+    name: Checks
     runs-on: ubuntu-latest
     steps:
       - name: Check out
         uses: actions/checkout@v4
+
       - name: Read .tool-versions
         id: versions
         uses: marocchino/tool-versions-action@v1
-      - uses: pnpm/action-setup@v4
-        name: Install pnpm
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
         with:
           version: ${{ steps.versions.outputs.pnpm }}
+
       - name: Set up node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ steps.versions.outputs.nodejs }}
           cache: pnpm
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
       - name: Typecheck
-        run: make typecheck
+        run: pnpm run typecheck
 
-  formatting:
-    name: Formatting
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out
-        uses: actions/checkout@v4
-      - name: Read .tool-versions
-        id: versions
-        uses: marocchino/tool-versions-action@v1
-      - uses: pnpm/action-setup@v4
-        name: Install pnpm
-        with:
-          version: ${{ steps.versions.outputs.pnpm }}
-      - name: Set up node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ steps.versions.outputs.nodejs }}
-          cache: pnpm
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Formatting
-        run: make formatting
-
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out
-        uses: actions/checkout@v4
-      - name: Read .tool-versions
-        id: versions
-        uses: marocchino/tool-versions-action@v1
-      - uses: pnpm/action-setup@v4
-        name: Install pnpm
-        with:
-          version: ${{ steps.versions.outputs.pnpm }}
-      - name: Set up node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ steps.versions.outputs.nodejs }}
-          cache: pnpm
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
       - name: Lint
-        run: make lint
+        run: pnpm run lint
 
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out
-        uses: actions/checkout@v4
-      - name: Read .tool-versions
-        id: versions
-        uses: marocchino/tool-versions-action@v1
-      - uses: pnpm/action-setup@v4
-        name: Install pnpm
-        with:
-          version: ${{ steps.versions.outputs.pnpm }}
-      - name: Unlock .env
-        uses: sliteteam/github-action-git-crypt-unlock@1.2.0
-        env:
-          GIT_CRYPT_KEY: ${{ secrets.GIT_CRYPT_KEY }}
-      - name: Set up node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ steps.versions.outputs.nodejs }}
-          cache: pnpm
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Set version
-        if: startsWith(github.ref, 'refs/tags/')
-        run: pnpm version --no-git-tag-version --new-version "${GITHUB_REF:11}"
-      - name: Build renderer
-        run: make build packages
-        env:
-          NODE_OPTIONS: --openssl-legacy-provider
-      - name: Upload dist
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist
+      - name: Formatting
+        run: pnpm run format:check
 
-  bundle:
-    name: Bundle
-    runs-on: macos-latest
-    needs:
-      - build
-    steps:
-      - name: Check out
-        uses: actions/checkout@v4
-      - name: Read .tool-versions
-        id: versions
-        uses: marocchino/tool-versions-action@v1
-      - uses: pnpm/action-setup@v4
-        name: Install pnpm
-        with:
-          version: ${{ steps.versions.outputs.pnpm }}
-      - name: Set up node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ steps.versions.outputs.nodejs }}
-          cache: pnpm
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Set version
-        if: startsWith(github.ref, 'refs/tags/')
-        run: pnpm version --no-git-tag-version --new-version "${GITHUB_REF:11}"
-      - name: Download dist
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist
-      - name: Build Electron app
-        run: make app
-      - name: Upload bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: bundle
-          path: bundle
-
-  release:
-    name: Release
-    needs:
-      - typecheck
-      - formatting
-      - lint
-      - bundle
-    runs-on: macos-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    steps:
-      - name: Check out
-        uses: actions/checkout@v4
-      - name: Download app
-        uses: actions/download-artifact@v4
-        with:
-          name: bundle
-          path: bundle
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: bundle/NTS Desktop-*.dmg
-          generate_release_notes: true
-          fail_on_unmatched_files: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.github_token }}
+      # Proves the renderer and main process actually build. The Windows
+      # installer is not built here: electron-builder needs a Windows runner and
+      # the release is published manually.
+      - name: Build
+        run: pnpm run build

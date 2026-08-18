@@ -380,7 +380,10 @@ function makeWindow(): BrowserWindow {
 		// Chromeless. On macOS keep the frame so the traffic lights survive and
 		// inset them into our own title bar; elsewhere draw the controls ourselves.
 		...(mac
-			? { titleBarStyle: "hiddenInset" as const, trafficLightPosition: { x: 13, y: 10 } }
+			? {
+					titleBarStyle: "hiddenInset" as const,
+					trafficLightPosition: { x: 13, y: 10 },
+				}
 			: { frame: false }),
 		resizable: true,
 		backgroundColor: "#111111",

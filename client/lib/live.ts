@@ -37,7 +37,11 @@ type LiveOptions = {
 }
 
 // now, next, next2 … next17
-const SLOTS = ["now", "next", ...Array.from({ length: 16 }, (_, i) => `next${i + 2}`)]
+const SLOTS = [
+	"now",
+	"next",
+	...Array.from({ length: 16 }, (_, i) => `next${i + 2}`),
+]
 
 export async function live(options: LiveOptions): Promise<Info> {
 	const resp = await fetch("https://www.nts.live/api/v2/live", {

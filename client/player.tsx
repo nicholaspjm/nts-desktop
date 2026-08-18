@@ -127,8 +127,12 @@ export function Player(props: Props) {
 				// hls.js manages its own source; only the direct path swaps URLs.
 				if (isHls(src)) {
 					audio.play().then(
-						() => { reconnecting.current = false },
-						() => { reconnecting.current = false },
+						() => {
+							reconnecting.current = false
+						},
+						() => {
+							reconnecting.current = false
+						},
 					)
 					return
 				}

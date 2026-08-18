@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from "react"
 
 import logo from "../logos/nts.svg"
 
-import type { ChannelInfo, Info, ShowInfo } from "./lib/live"
 import type { ShowInfo as ArchiveShow } from "../app/show"
+import type { ChannelInfo, Info, ShowInfo } from "./lib/live"
 import type { Mixtape } from "./lib/mixtapes"
 import type { AudioOutput } from "./lib/outputs"
 import {
@@ -485,13 +485,15 @@ export function SearchView(props: SearchProps) {
 			</div>
 
 			{pasted ? (
-				<p className={css.empty}>
-					That is a show link. Press Open to load it.
-				</p>
+				<p className={css.empty}>That is a show link. Press Open to load it.</p>
 			) : null}
 			{state.loading ? <p className={css.empty}>Searching…</p> : null}
 			{state.error ? <p className={css.empty}>Search failed.</p> : null}
-			{!state.loading && !state.error && query.trim().length >= 2 && !pasted && state.results.length === 0 ? (
+			{!state.loading &&
+			!state.error &&
+			query.trim().length >= 2 &&
+			!pasted &&
+			state.results.length === 0 ? (
 				<p className={css.empty}>Nothing found.</p>
 			) : null}
 
@@ -507,7 +509,9 @@ export function SearchView(props: SearchProps) {
 							<div
 								className={css.tileArt}
 								style={
-									result.image ? { backgroundImage: `url(${result.image})` } : undefined
+									result.image
+										? { backgroundImage: `url(${result.image})` }
+										: undefined
 								}
 							/>
 							<div className={css.tileBody}>
@@ -638,7 +642,9 @@ function HealthGraph(props: { health: StreamHealth; height: number }) {
 
 			const ratio = window.devicePixelRatio || 1
 			const width = el.clientWidth
-			const h = el.clientHeight
+			// Use the prop rather than clientHeight so a change of size actually
+			// redraws, instead of waiting for the next health sample.
+			const h = height
 			el.width = Math.round(width * ratio)
 			el.height = Math.round(h * ratio)
 			ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
@@ -779,10 +785,7 @@ export function StreamPanel(props: PanelProps) {
 							label="Frames read"
 							value={measured ? String(measured.frames) : "-"}
 						/>
-						<Stat
-							label="Served by"
-							value={reported?.station || "-"}
-						/>
+						<Stat label="Served by" value={reported?.station || "-"} />
 					</div>
 
 					<div className={css.compare}>
@@ -1056,7 +1059,9 @@ export function NowPlayingBar(props: BarProps) {
 		? [
 				`${measured.bitrate} kbps`,
 				codec,
-				measured.sampleRate ? `${(measured.sampleRate / 1000).toFixed(1)} kHz` : null,
+				measured.sampleRate
+					? `${(measured.sampleRate / 1000).toFixed(1)} kHz`
+					: null,
 			]
 				.filter(Boolean)
 				.join(" · ")

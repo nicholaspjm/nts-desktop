@@ -12,8 +12,8 @@ export function Help(props: Props) {
 	return (
 		<div className={classnames(css.help, hide && css.hide)}>
 			<p>
-				Use the sidebar to move between the live channels, the Infinite Mixtapes
-				and the schedule.
+				Use the sidebar to move between the live channels, the Infinite Mixtapes and
+				the schedule.
 			</p>
 			<p>
 				Press 1 or 2 to play or stop a live channel.

@@ -179,7 +179,7 @@
 .cardArt {
 	position: relative;
 	aspect-ratio: 16 / 9;
-	background: #151515 center/cover no-repeat;
+	background: #151515 center / cover no-repeat;
 }
 
 .cardBadge {
@@ -302,7 +302,7 @@
 
 .tileArt {
 	aspect-ratio: 1;
-	background: #151515 center/cover no-repeat;
+	background: #151515 center / cover no-repeat;
 }
 
 .tileBody {
@@ -380,7 +380,7 @@
 	flex: none;
 	position: relative;
 	cursor: pointer;
-	background: #1a1a1a center/cover no-repeat;
+	background: #1a1a1a center / cover no-repeat;
 }
 
 .barExpand {
@@ -413,8 +413,7 @@
 .fullBackdrop {
 	position: absolute;
 	inset: 0;
-	background:
-		radial-gradient(120% 90% at 50% 0%, #1a1a1a 0%, #070707 70%);
+	background: radial-gradient(120% 90% at 50% 0%, #1a1a1a 0%, #070707 70%);
 	pointer-events: none;
 }
 
@@ -441,7 +440,7 @@
 	aspect-ratio: 1;
 	max-height: 60vh;
 	justify-self: end;
-	background: #151515 center/cover no-repeat;
+	background: #151515 center / cover no-repeat;
 	box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
 }
 
