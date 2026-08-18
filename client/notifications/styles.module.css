@@ -16,8 +16,8 @@
 	height: 0;
 
 	.inner {
-		background: #222;
-		color: #eee;
+		background: var(--nts-hover-bg);
+		color: var(--nts-text-dim);
 		padding: 0.3rem 0.5rem;
 		border-radius: 6px;
 		font-size: 0.85rem;
@@ -31,8 +31,8 @@
 
 	&.error {
 		.inner {
-			background: #440000;
-			color: #ffdddd;
+			background: var(--nts-red);
+			color: var(--nts-text);
 		}
 	}
 }

@@ -8,8 +8,8 @@
 		"titlebar titlebar"
 		"nav content"
 		"bar bar";
-	background: black;
-	color: white;
+	background: var(--nts-black);
+	color: var(--nts-text);
 }
 
 /* Title bar. The window is frameless, so this is both the drag handle and the
@@ -21,7 +21,7 @@
 	align-items: center;
 	gap: 4px;
 	padding: 0 4px 0 8px;
-	border-bottom: 1px solid #161616;
+	border-bottom: 1px solid var(--nts-line-soft);
 	-webkit-app-region: drag;
 }
 
@@ -35,7 +35,7 @@
 	appearance: none;
 	background: none;
 	border: none;
-	color: #999999;
+	color: var(--nts-text-muted);
 	padding: 5px 9px;
 	cursor: pointer;
 	display: flex;
@@ -45,13 +45,13 @@
 }
 
 .iconButton:hover {
-	color: white;
-	background: #1c1c1c;
+	color: var(--nts-text);
+	background: var(--nts-hover-bg);
 }
 
 .closeButton:hover {
-	background: #e81717;
-	color: white;
+	background: var(--nts-red);
+	color: var(--nts-text);
 }
 
 .windowControls {
@@ -70,8 +70,8 @@
 	left: 0;
 	z-index: 200;
 	min-width: 168px;
-	background: #121212;
-	border: 1px solid #333333;
+	background: var(--nts-panel);
+	border: 1px solid var(--nts-line);
 	padding: 4px 0;
 	display: flex;
 	flex-direction: column;
@@ -81,7 +81,7 @@
 	appearance: none;
 	background: none;
 	border: none;
-	color: #cccccc;
+	color: var(--nts-text-dim);
 	font: inherit;
 	font-size: 14px;
 	text-align: left;
@@ -91,15 +91,15 @@
 }
 
 .menuItem:hover {
-	background: #222222;
-	color: white;
+	background: var(--nts-hover-bg);
+	color: var(--nts-text);
 }
 
 /* Sidebar */
 
 .nav {
 	grid-area: nav;
-	border-right: 1px solid #202020;
+	border-right: 1px solid var(--nts-line-soft);
 	padding: 18px 0;
 	display: flex;
 	flex-direction: column;
@@ -123,7 +123,7 @@
 	appearance: none;
 	background: none;
 	border: none;
-	color: #999999;
+	color: var(--nts-text-muted);
 	font: inherit;
 	font-size: 16px;
 	text-align: left;
@@ -134,12 +134,12 @@
 }
 
 .navItem:hover {
-	color: white;
+	color: var(--nts-text);
 }
 
 .navItemActive {
-	color: white;
-	box-shadow: inset 2px 0 0 #e81717;
+	color: var(--nts-text);
+	box-shadow: inset 2px 0 0 var(--nts-red);
 }
 
 .navSpacer {
@@ -158,7 +158,7 @@
 	font-size: 13px;
 	text-transform: uppercase;
 	letter-spacing: 0.12em;
-	color: #999999;
+	color: var(--nts-text-muted);
 	margin: 0 0 14px;
 }
 
@@ -169,8 +169,8 @@
 }
 
 .card {
-	border: 1px solid #202020;
-	background: #121212;
+	border: 1px solid var(--nts-line-soft);
+	background: var(--nts-panel);
 	display: flex;
 	flex-direction: column;
 	min-width: 0;
@@ -179,15 +179,15 @@
 .cardArt {
 	position: relative;
 	aspect-ratio: 16 / 9;
-	background: #151515 center / cover no-repeat;
+	background: var(--nts-surface) center / cover no-repeat;
 }
 
 .cardBadge {
 	position: absolute;
 	top: 10px;
 	left: 10px;
-	background: #e81717;
-	color: white;
+	background: var(--nts-red);
+	color: var(--nts-text);
 	font-size: 11px;
 	letter-spacing: 0.1em;
 	padding: 3px 7px;
@@ -211,7 +211,7 @@
 
 .cardMeta {
 	font-size: 13px;
-	color: #999999;
+	color: var(--nts-text-muted);
 	display: flex;
 	gap: 9px;
 	flex-wrap: wrap;
@@ -219,7 +219,7 @@
 
 .cardDesc {
 	font-size: 13px;
-	color: #cccccc;
+	color: var(--nts-text-dim);
 	margin: 0;
 	display: -webkit-box;
 	-webkit-line-clamp: 3;
@@ -237,8 +237,8 @@
 	font-size: 11px;
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
-	color: #999999;
-	border: 1px solid #333333;
+	color: var(--nts-text-muted);
+	border: 1px solid var(--nts-line);
 	padding: 2px 6px;
 }
 
@@ -254,20 +254,20 @@
 	font-size: 13px;
 	text-transform: uppercase;
 	letter-spacing: 0.08em;
-	border: 1px solid #333;
+	border: 1px solid var(--nts-line);
 	background: none;
-	color: white;
+	color: var(--nts-text);
 	padding: 6px 13px;
 	cursor: pointer;
 }
 
 .button:hover {
-	border-color: #666;
+	border-color: var(--nts-text-faint);
 }
 
 .buttonActive {
-	background: #e81717;
-	border-color: #e81717;
+	background: var(--nts-red);
+	border-color: var(--nts-red);
 }
 
 /* Mixtapes */
@@ -282,9 +282,9 @@
 	appearance: none;
 	font: inherit;
 	text-align: left;
-	border: 1px solid #202020;
-	background: #121212;
-	color: white;
+	border: 1px solid var(--nts-line-soft);
+	background: var(--nts-panel);
+	color: var(--nts-text);
 	cursor: pointer;
 	padding: 0;
 	display: flex;
@@ -293,16 +293,16 @@
 }
 
 .tile:hover {
-	border-color: #4a4a4a;
+	border-color: var(--nts-line-strong);
 }
 
 .tileActive {
-	border-color: #e81717;
+	border-color: var(--nts-red);
 }
 
 .tileArt {
 	aspect-ratio: 1;
-	background: #151515 center / cover no-repeat;
+	background: var(--nts-surface) center / cover no-repeat;
 }
 
 .tileBody {
@@ -317,7 +317,7 @@
 
 .tileSub {
 	font-size: 12px;
-	color: #999999;
+	color: var(--nts-text-muted);
 	margin: 0;
 	display: -webkit-box;
 	-webkit-line-clamp: 2;
@@ -337,13 +337,13 @@
 	display: flex;
 	gap: 12px;
 	padding: 8px 0;
-	border-bottom: 1px solid #171717;
+	border-bottom: 1px solid var(--nts-line-soft);
 	font-size: 14px;
 	min-width: 0;
 }
 
 .rowTime {
-	color: #999999;
+	color: var(--nts-text-muted);
 	flex: none;
 	width: 84px;
 	font-variant-numeric: tabular-nums;
@@ -355,15 +355,15 @@
 }
 
 .rowNow {
-	color: #e81717;
+	color: var(--nts-red);
 }
 
 /* Now playing bar */
 
 .bar {
 	grid-area: bar;
-	border-top: 1px solid #202020;
-	background: #121212;
+	border-top: 1px solid var(--nts-line-soft);
+	background: var(--nts-panel);
 	display: flex;
 	align-items: center;
 	gap: 12px;
@@ -386,7 +386,7 @@
 	flex: none;
 	position: relative;
 	cursor: pointer;
-	background: #1a1a1a center / cover no-repeat;
+	background: var(--nts-surface) center / cover no-repeat;
 }
 
 .barExpand {
@@ -395,7 +395,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	color: white;
+	color: var(--nts-text);
 	background: rgba(0, 0, 0, 0.55);
 	opacity: 0;
 	transition: opacity 150ms;
@@ -411,7 +411,7 @@
 	position: fixed;
 	inset: 0;
 	z-index: 300;
-	background: #070707;
+	background: var(--nts-black);
 	display: flex;
 	flex-direction: column;
 }
@@ -419,7 +419,7 @@
 .fullBackdrop {
 	position: absolute;
 	inset: 0;
-	background: #070707;
+	background: var(--nts-black);
 	pointer-events: none;
 }
 
@@ -449,7 +449,7 @@
 	aspect-ratio: 1;
 	max-height: 46vh;
 	justify-self: end;
-	background: #151515 center / cover no-repeat;
+	background: var(--nts-surface) center / cover no-repeat;
 	box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
 }
 
@@ -468,7 +468,7 @@
 	font-size: 11px;
 	text-transform: uppercase;
 	letter-spacing: 0.12em;
-	color: #999999;
+	color: var(--nts-text-muted);
 }
 
 .fullTitle {
@@ -483,13 +483,13 @@
 	gap: 14px;
 	flex-wrap: wrap;
 	font-size: 15px;
-	color: #999999;
+	color: var(--nts-text-muted);
 }
 
 .fullDesc {
 	font-size: 15px;
 	line-height: 1.45;
-	color: #cccccc;
+	color: var(--nts-text-dim);
 	margin: 0;
 	display: -webkit-box;
 	-webkit-line-clamp: 6;
@@ -508,7 +508,7 @@
 
 .panel {
 	margin-top: 10px;
-	border-top: 1px solid #222222;
+	border-top: 1px solid var(--nts-hover-bg);
 	padding-top: 14px;
 }
 
@@ -527,8 +527,8 @@
 .panelToggle {
 	appearance: none;
 	background: none;
-	border: 1px solid #333333;
-	color: #999999;
+	border: 1px solid var(--nts-line);
+	color: var(--nts-text-muted);
 	font: inherit;
 	font-size: 10px;
 	text-transform: uppercase;
@@ -538,26 +538,26 @@
 }
 
 .panelToggle:hover {
-	color: white;
-	border-color: #555;
+	color: var(--nts-text);
+	border-color: var(--nts-line-strong);
 }
 
 .panelQuality {
 	font-size: 16px;
-	color: white;
+	color: var(--nts-text);
 	letter-spacing: 0.02em;
 }
 
 .panelSub {
 	font-size: 12px;
-	color: #999999;
+	color: var(--nts-text-muted);
 	margin: 2px 0 9px;
 	font-variant-numeric: tabular-nums;
 }
 
 .compare {
 	margin-top: 12px;
-	border-top: 1px solid #171717;
+	border-top: 1px solid var(--nts-line-soft);
 	padding-top: 10px;
 	display: flex;
 	flex-direction: column;
@@ -574,14 +574,14 @@
 .compareLabel {
 	flex: none;
 	width: 132px;
-	color: #666666;
+	color: var(--nts-text-faint);
 	text-transform: uppercase;
 	font-size: 10px;
 	letter-spacing: 0.09em;
 }
 
 .compareValue {
-	color: #cccccc;
+	color: var(--nts-text-dim);
 	overflow-wrap: anywhere;
 }
 
@@ -597,7 +597,7 @@
 .barFormat {
 	font-size: 12px;
 	letter-spacing: 0.04em;
-	color: white;
+	color: var(--nts-text);
 	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
 }
@@ -609,7 +609,7 @@
 	font-size: 10px;
 	text-transform: uppercase;
 	letter-spacing: 0.09em;
-	color: #666666;
+	color: var(--nts-text-faint);
 	white-space: nowrap;
 }
 
@@ -619,8 +619,8 @@
 	color-scheme: dark;
 	appearance: none;
 	background: none;
-	border: 1px solid #333333;
-	color: #cccccc;
+	border: 1px solid var(--nts-line);
+	color: var(--nts-text-dim);
 	font: inherit;
 	font-size: 12px;
 	padding: 5px 7px;
@@ -629,8 +629,8 @@
 }
 
 .barSelect:hover {
-	color: white;
-	border-color: #555;
+	color: var(--nts-text);
+	border-color: var(--nts-line-strong);
 }
 
 .output {
@@ -645,9 +645,9 @@
 	min-width: 0;
 	color-scheme: dark;
 	appearance: none;
-	background: #121212;
-	border: 1px solid #333333;
-	color: white;
+	background: var(--nts-panel);
+	border: 1px solid var(--nts-line);
+	color: var(--nts-text);
 	font: inherit;
 	font-size: 13px;
 	padding: 5px 8px;
@@ -655,26 +655,26 @@
 }
 
 .select:hover {
-	border-color: #555;
+	border-color: var(--nts-line-strong);
 }
 
 .select option,
 .barSelect option {
-	background: #121212;
-	color: white;
+	background: var(--nts-panel);
+	color: var(--nts-text);
 }
 
 .graph {
 	display: block;
 	width: 100%;
 	height: 52px;
-	background: #121212;
-	border: 1px solid #1c1c1c;
+	background: var(--nts-panel);
+	border: 1px solid var(--nts-hover-bg);
 }
 
 .graphLabel {
 	font-size: 11px;
-	color: #666666;
+	color: var(--nts-text-faint);
 	margin-top: 5px;
 	letter-spacing: 0.04em;
 }
@@ -694,12 +694,12 @@
 	font-size: 10px;
 	text-transform: uppercase;
 	letter-spacing: 0.11em;
-	color: #666666;
+	color: var(--nts-text-faint);
 }
 
 .statValue {
 	font-size: 15px;
-	color: white;
+	color: var(--nts-text);
 	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
 	overflow: hidden;
@@ -709,7 +709,7 @@
 .panelFoot {
 	margin-top: 10px;
 	font-size: 11px;
-	color: #666666;
+	color: var(--nts-text-faint);
 	overflow-wrap: anywhere;
 }
 
@@ -746,7 +746,7 @@
 
 .barSub {
 	font-size: 12px;
-	color: #999999;
+	color: var(--nts-text-muted);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -756,7 +756,7 @@
 	font-size: 11px;
 	text-transform: uppercase;
 	letter-spacing: 0.09em;
-	color: #999999;
+	color: var(--nts-text-muted);
 	flex: none;
 	display: flex;
 	align-items: center;
@@ -767,20 +767,20 @@
 	width: 7px;
 	height: 7px;
 	border-radius: 50%;
-	background: #4a4a4a;
+	background: var(--nts-line-strong);
 }
 
 .dotPlaying {
-	background: #35c759;
+	background: var(--nts-ok);
 }
 
 .dotWarn {
-	background: #ffb02e;
+	background: var(--nts-warn);
 	animation: pulse 1s ease-in-out infinite;
 }
 
 .dotError {
-	background: #e81717;
+	background: var(--nts-red);
 }
 
 @keyframes pulse {
@@ -800,7 +800,7 @@
 
 .volume::-webkit-slider-runnable-track {
 	height: 2px;
-	background: #333333;
+	background: var(--nts-line);
 }
 
 /* The site uses a 2px bar with a 12px round white dot. */
@@ -809,17 +809,17 @@
 	width: 12px;
 	height: 12px;
 	margin-top: -5px;
-	background: white;
+	background: var(--nts-text);
 	border: none;
 	border-radius: 6px;
 }
 
 .volume:hover::-webkit-slider-runnable-track {
-	background: #555555;
+	background: var(--nts-line-strong);
 }
 
 .empty {
-	color: #666666;
+	color: var(--nts-text-faint);
 	font-size: 14px;
 }
 
@@ -850,9 +850,9 @@
 	flex: 1;
 	min-width: 0;
 	appearance: none;
-	background: #121212;
-	border: 1px solid #333333;
-	color: white;
+	background: var(--nts-panel);
+	border: 1px solid var(--nts-line);
+	color: var(--nts-text);
 	font: inherit;
 	font-size: 15px;
 	padding: 9px 12px;
@@ -860,7 +860,7 @@
 
 .searchInput:focus {
 	outline: none;
-	border-color: #e81717;
+	border-color: var(--nts-red);
 }
 
 .tracklist {
@@ -882,27 +882,27 @@
 	font-size: 12px;
 	width: 26px;
 	height: 26px;
-	border: 1px solid #333333;
+	border: 1px solid var(--nts-line);
 	background: none;
-	color: #999999;
+	color: var(--nts-text-muted);
 	cursor: pointer;
 	font-variant-numeric: tabular-nums;
 }
 
 .chip:hover {
-	color: white;
-	border-color: #555;
+	color: var(--nts-text);
+	border-color: var(--nts-line-strong);
 }
 
 .chipActive {
-	background: #e81717;
-	border-color: #e81717;
-	color: white;
+	background: var(--nts-red);
+	border-color: var(--nts-red);
+	color: var(--nts-text);
 }
 
 .tagMood {
-	color: #666666;
-	border-color: #222222;
+	color: var(--nts-text-faint);
+	border-color: var(--nts-hover-bg);
 }
 
 /* Detail view: shown when a mixtape is opened, before anything plays. */
@@ -911,7 +911,7 @@
 	appearance: none;
 	background: none;
 	border: none;
-	color: #999999;
+	color: var(--nts-text-muted);
 	font: inherit;
 	font-size: 13px;
 	padding: 0 0 16px;
@@ -921,7 +921,7 @@
 }
 
 .backLink:hover {
-	color: white;
+	color: var(--nts-text);
 }
 
 .detail {
@@ -934,7 +934,7 @@
 .detailArt {
 	width: 100%;
 	aspect-ratio: 1;
-	background: #151515 center / cover no-repeat;
+	background: var(--nts-surface) center / cover no-repeat;
 }
 
 .detailBody {
@@ -953,14 +953,14 @@
 
 .detailSub {
 	font-size: 15px;
-	color: #999999;
+	color: var(--nts-text-muted);
 	margin: 0;
 }
 
 .detailDesc {
 	font-size: 14px;
 	line-height: 1.45;
-	color: #cccccc;
+	color: var(--nts-text-dim);
 	margin: 0;
 	max-width: 620px;
 }
@@ -978,7 +978,7 @@
 
 .settingHint {
 	font-size: 11px;
-	color: #666666;
+	color: var(--nts-text-faint);
 	margin-top: 5px;
 	line-height: 1.4;
 }
@@ -991,9 +991,9 @@
 }
 
 .historyDetail {
-	color: #666666;
+	color: var(--nts-text-faint);
 }
 
 .resampling {
-	color: #ffb02e;
+	color: var(--nts-warn);
 }

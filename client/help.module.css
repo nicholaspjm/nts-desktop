@@ -4,8 +4,8 @@
 	bottom: 0;
 	left: 0;
 	right: 0;
-	background: black;
-	color: white;
+	background: var(--nts-black);
+	color: var(--nts-text);
 	opacity: 1;
 	transition: opacity 500ms;
 

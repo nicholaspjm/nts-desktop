@@ -1,7 +1,7 @@
 .play {
 	width: 16px;
 	height: 16px;
-	fill: black;
+	fill: var(--nts-black);
 	position: relative;
 	top: 2px;
 	cursor: pointer;

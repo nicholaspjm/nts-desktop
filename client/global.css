@@ -1,3 +1,26 @@
+/* Palette, taken from the live nts.live styles rather than invented: pure black
+   ground, white type, #e81717 red, and a short grey ramp. Every colour in the
+   app refers to one of these, so nothing drifts out of step again. */
+
+:root {
+	--nts-black: #000000;
+	--nts-panel: #121212;
+	--nts-surface: #151515;
+	--nts-line-soft: #202020;
+	--nts-hover-bg: #222222;
+	--nts-line: #333333;
+	--nts-line-strong: #555555;
+
+	--nts-text: #ffffff;
+	--nts-text-dim: #cccccc;
+	--nts-text-muted: #999999;
+	--nts-text-faint: #666666;
+
+	--nts-red: #e81717;
+	--nts-ok: #35c759;
+	--nts-warn: #ffb02e;
+}
+
 :root {
 	/* Native widgets the OS draws for us - select popups, scrollbars, form
 	   controls - default to a light palette and render unreadable on this UI.
@@ -18,8 +41,8 @@
 
 body {
 	font-family: "UniversCondensed", Arial;
-	background: black;
-	color: white;
+	background: var(--nts-black);
+	color: var(--nts-text);
 	padding: 0;
 	margin: 0;
 
@@ -40,18 +63,18 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-	background: #0d0d0d;
+	background: var(--nts-panel);
 }
 
 ::-webkit-scrollbar-thumb {
-	background: #333333;
-	border: 2px solid #0d0d0d;
+	background: var(--nts-line);
+	border: 2px solid var(--nts-panel);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-	background: #555555;
+	background: var(--nts-line-strong);
 }
 
 ::-webkit-scrollbar-corner {
-	background: #0d0d0d;
+	background: var(--nts-panel);
 }

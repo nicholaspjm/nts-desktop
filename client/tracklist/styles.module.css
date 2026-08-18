@@ -57,7 +57,7 @@
 	}
 
 	.seekable &:hover {
-		background: white;
-		color: black;
+		background: var(--nts-text);
+		color: var(--nts-black);
 	}
 }
