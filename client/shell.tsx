@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import logo from "../logos/nts.svg"
 
 import type { ShowInfo as ArchiveShow } from "../app/show"
+import type { HistoryEntry } from "./lib/controls"
 import type { ChannelInfo, Info, ShowInfo } from "./lib/live"
 import type { Mixtape } from "./lib/mixtapes"
 import type { AudioOutput } from "./lib/outputs"
@@ -23,7 +24,13 @@ export type Source =
 	| { kind: "channel"; id: 1 | 2 }
 	| { kind: "mixtape"; alias: string }
 
-export type View = "live" | "mixtapes" | "schedule" | "search" | "archive"
+export type View =
+	| "live"
+	| "mixtapes"
+	| "schedule"
+	| "search"
+	| "archive"
+	| "history"
 
 export type MenuAction = "schedule" | "explore" | "reload" | "quit"
 export type WindowAction = "minimize" | "maximize" | "close"
@@ -204,6 +211,7 @@ export function Nav(props: NavProps) {
 		{ id: "mixtapes", label: "Mixtapes" },
 		{ id: "schedule", label: "Schedule" },
 		{ id: "search", label: "Search" },
+		{ id: "history", label: "History" },
 	]
 	if (props.hasArchive) {
 		items.push({ id: "archive", label: "Archive" })
@@ -639,6 +647,64 @@ export function ArchiveView(props: ArchiveProps) {
 	)
 }
 
+type HistoryProps = {
+	entries: HistoryEntry[]
+	onOpen: (url: string) => void
+	onClear: () => void
+}
+
+export function HistoryView(props: HistoryProps) {
+	const { entries, onOpen, onClear } = props
+
+	if (entries.length === 0) {
+		return <p className={css.empty}>Nothing played yet this session.</p>
+	}
+
+	return (
+		<>
+			<div className={css.panelHead}>
+				<span className={css.heading}>Listening history</span>
+				<button type="button" className={css.panelToggle} onClick={onClear}>
+					Clear
+				</button>
+			</div>
+
+			{entries.map(function (entry, i) {
+				const when = entry.at ? new Date(entry.at) : null
+				return (
+					<div key={`${entry.at}-${entry.name}-${i}`} className={css.row}>
+						<span className={css.rowTime}>
+							{when && !Number.isNaN(when.getTime())
+								? when.toLocaleString([], {
+										day: "2-digit",
+										month: "short",
+										hour: "2-digit",
+										minute: "2-digit",
+									})
+								: ""}
+						</span>
+						<span className={css.rowName}>
+							{entry.name}
+							{entry.detail ? (
+								<span className={css.historyDetail}> {entry.detail}</span>
+							) : null}
+						</span>
+						{entry.kind === "archive" && entry.url ? (
+							<button
+								type="button"
+								className={css.panelToggle}
+								onClick={() => onOpen(entry.url as string)}
+							>
+								Open
+							</button>
+						) : null}
+					</div>
+				)
+			})}
+		</>
+	)
+}
+
 const STATUS_LABEL: Record<PlayerStatus, string> = {
 	idle: "Stopped",
 	connecting: "Connecting",
@@ -675,6 +741,9 @@ type PanelProps = {
 	canChooseFormat: boolean
 	liveDelivery: "hls" | "direct"
 	onLiveDelivery: (delivery: "hls" | "direct") => void
+	sleepRemaining: number | null
+	onSleep: (minutes: number) => void
+	onCancelSleep: () => void
 }
 
 function HealthGraph(props: { health: StreamHealth; height: number }) {
@@ -788,6 +857,9 @@ export function StreamPanel(props: PanelProps) {
 		canChooseFormat,
 		liveDelivery,
 		onLiveDelivery,
+		sleepRemaining,
+		onSleep,
+		onCancelSleep,
 	} = props
 
 	const measured = probe?.measured ?? null
@@ -860,6 +932,37 @@ export function StreamPanel(props: PanelProps) {
 									: "-"}
 							</span>
 						</div>
+					</div>
+
+					<div className={css.output}>
+						<span className={css.compareLabel}>Sleep timer</span>
+						{sleepRemaining === null ? (
+							<div className={css.sleepOptions}>
+								{[15, 30, 60, 90].map((m) => (
+									<button
+										key={m}
+										type="button"
+										className={css.panelToggle}
+										onClick={() => onSleep(m)}
+									>
+										{m}m
+									</button>
+								))}
+							</div>
+						) : (
+							<div className={css.sleepOptions}>
+								<span className={css.statValue}>
+									{Math.floor(sleepRemaining / 60)}m {sleepRemaining % 60}s
+								</span>
+								<button
+									type="button"
+									className={css.panelToggle}
+									onClick={onCancelSleep}
+								>
+									Cancel
+								</button>
+							</div>
+						)}
 					</div>
 
 					<label className={css.output}>
@@ -940,6 +1043,9 @@ type FullProps = {
 	canChooseFormat: boolean
 	liveDelivery: "hls" | "direct"
 	onLiveDelivery: (delivery: "hls" | "direct") => void
+	sleepRemaining: number | null
+	onSleep: (minutes: number) => void
+	onCancelSleep: () => void
 	status: PlayerStatus
 	playing: boolean
 	volume: number
@@ -965,6 +1071,9 @@ export function FullScreen(props: FullProps) {
 		canChooseFormat,
 		liveDelivery,
 		onLiveDelivery,
+		sleepRemaining,
+		onSleep,
+		onCancelSleep,
 		status,
 		playing,
 		volume,
@@ -1084,6 +1193,9 @@ export function FullScreen(props: FullProps) {
 						canChooseFormat={canChooseFormat}
 						liveDelivery={liveDelivery}
 						onLiveDelivery={onLiveDelivery}
+						sleepRemaining={sleepRemaining}
+						onSleep={onSleep}
+						onCancelSleep={onCancelSleep}
 					/>
 				</div>
 			</div>

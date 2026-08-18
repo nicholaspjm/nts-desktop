@@ -136,6 +136,23 @@ export class NTSApplication {
 			}
 		})
 
+		// Listening history, recorded from the renderer since only it knows what
+		// is actually playing.
+		ipcMain.on(
+			"history-add",
+			(_evt: IpcMainEvent, entry: { name: string; kind: string; detail?: string }) =>
+				history.add({
+					name: entry.name,
+					kind:
+						entry.kind === "mixtape" || entry.kind === "channel"
+							? entry.kind
+							: "archive",
+					detail: entry.detail,
+				}),
+		)
+		ipcMain.handle("history", () => history.read())
+		ipcMain.on("history-clear", () => history.clear())
+
 		ipcMain.on("schedule", () => this.openSchedule())
 		ipcMain.on("reload", () => this.reload())
 		ipcMain.on("quit", () => app.quit())
@@ -268,7 +285,7 @@ export class NTSApplication {
 		}
 
 		const data = await show(url)
-		history.add({ name: data.name, url })
+		history.add({ name: data.name, kind: "archive", url })
 		this.window.webContents.send("open-show", data)
 	}
 
@@ -493,10 +510,14 @@ async function makeMenu(application: NTSApplication): Promise<Menu> {
 		{
 			label: "Recently Listened Archive Shows",
 			submenu: [
-				...h.map((entry) => ({
-					label: entry.name,
-					click: () => void application.openURL(entry.url),
-				})),
+				// History also records live and mixtape plays now, and those have no
+				// page to reopen, so only archive entries belong in this menu.
+				...h
+					.filter((entry) => entry.kind === "archive" && entry.url)
+					.map((entry) => ({
+						label: entry.name,
+						click: () => void application.openURL(entry.url as string),
+					})),
 				{
 					type: "separator",
 				},

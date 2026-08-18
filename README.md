@@ -18,8 +18,36 @@ installs for your user only, so it never asks for an administrator password.
 
 Once installed it appears in the Start Menu and Windows search as **NTS Desktop**.
 
-There is no macOS download yet. macOS support is written but has never been run
-on a Mac, and a Mac build has to be produced on a Mac.
+### macOS
+
+There is no prebuilt macOS download, because a Mac build has to be produced on a
+Mac and there has not been one to build on. The code handles macOS (the traffic
+lights are inset into the app's own title bar, and the standard application menu
+is kept so Cmd+Q and the clipboard shortcuts work), but **none of it has ever
+been run on a Mac**. Treat the first run as a test, not a release.
+
+Build it yourself with [Node](https://nodejs.org/) 20 or newer:
+
+```
+git clone https://github.com/nicholaspjm/nts-desktop.git
+cd nts-desktop
+npx pnpm@10 install
+npx pnpm@10 start
+```
+
+That runs it directly. To produce a `.dmg` in `bundle/`:
+
+```
+npx pnpm@10 exec electron-builder build --mac --publish=never
+```
+
+The app is unsigned and not notarised, so Gatekeeper will refuse it on first
+open. Right click the app and choose **Open**, then confirm, which tells macOS
+to allow that one app. Opening it by double click will only offer to move it to
+the bin.
+
+If anything is broken there, please open an issue saying what happened: macOS
+reports are genuinely useful because nobody has tested it.
 
 ## Origin
 
@@ -46,6 +74,7 @@ work is the foundation, and the MIT licence and copyright are retained in
 - Stream diagnostics: bitrate, codec, sample rate and channel mode decoded from
   the audio itself, plus a buffer history graph
 - Audio output device selection
+- Hardware media keys, a sleep timer that fades out, and a listening history
 
 ## Running it
 

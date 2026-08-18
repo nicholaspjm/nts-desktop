@@ -5,6 +5,7 @@ import "./global.css"
 import { hlsStreams, streams } from "~/lib/stream"
 
 import { electron } from "./electron"
+import { useHistory, useMediaKeys, useSleepTimer } from "./lib/controls"
 import { useLiveInfo } from "./lib/live"
 import { useMixtapes } from "./lib/mixtapes"
 import { useAudioOutput, useAudioOutputs } from "./lib/outputs"
@@ -26,6 +27,7 @@ import { Player, type PlayerStatus } from "./player"
 import {
 	ArchiveView,
 	FullScreen,
+	HistoryView,
 	LiveView,
 	type MenuAction,
 	MixtapeDetail,
@@ -76,6 +78,11 @@ export function NTS() {
 	const [sortOrder, setSortOrder] = useState<SortOrder>("relevance")
 	// Which mixtape is being looked at, as distinct from which is playing.
 	const [openMixtape, setOpenMixtape] = useState<string | null>(null)
+	// Bumped to re-read history after something is played or cleared.
+	const [historyKey, setHistoryKey] = useState(0)
+	// Multiplier applied over the stored volume during a sleep fade, so the
+	// user's chosen level is never overwritten.
+	const [fade, setFade] = useState(1)
 
 	const { preferences, updatePreferences } = usePreferences()
 	const isOffline = useOffline()
@@ -172,6 +179,47 @@ export function NTS() {
 			}))
 		},
 		[updatePreferences],
+	)
+
+	const playing = Boolean(active) || archivePlaying
+
+	useMediaKeys(playing, toggle, stop)
+
+	const sleep = useSleepTimer(playing, stop, setFade)
+
+	const history = useHistory(historyKey)
+
+	// Record what is playing, once it is actually playing.
+	useEffect(
+		function () {
+			if (!active) {
+				return
+			}
+			if (active.kind === "mixtape") {
+				if (!mixtape) {
+					return
+				}
+				electron.send("history-add", {
+					name: mixtape.title,
+					kind: "mixtape",
+					detail: mixtape.subtitle,
+				})
+			} else {
+				const info = active.id === 1 ? live.data?.channel1 : live.data?.channel2
+				if (!info) {
+					return
+				}
+				electron.send("history-add", {
+					name: info.now.name,
+					kind: "channel",
+					detail: info.now.location
+						? `NTS ${active.id} · ${info.now.location}`
+						: `NTS ${active.id}`,
+				})
+			}
+			setHistoryKey((k) => k + 1)
+		},
+		[active, mixtape, live.data],
 	)
 
 	// Drives the tray icon in the main process.
@@ -360,6 +408,16 @@ export function NTS() {
 						)
 					) : null}
 					{view === "schedule" ? <ScheduleView live={live.data} /> : null}
+					{view === "history" ? (
+						<HistoryView
+							entries={history}
+							onOpen={openArchive}
+							onClear={() => {
+								electron.send("history-clear")
+								setHistoryKey((k) => k + 1)
+							}}
+						/>
+					) : null}
 					{view === "search" ? (
 						<SearchView
 							query={query}
@@ -416,6 +474,9 @@ export function NTS() {
 					canChooseFormat={Boolean(mixtape?.streamAac)}
 					liveDelivery={preferences.liveDelivery}
 					onLiveDelivery={setLiveDelivery}
+					sleepRemaining={sleep.remaining}
+					onSleep={sleep.set}
+					onCancelSleep={sleep.cancel}
 					status={status}
 					playing={Boolean(active)}
 					volume={preferences.volume}
@@ -435,7 +496,7 @@ export function NTS() {
 				onStop={() => {}}
 				onStatus={setStatus}
 				onElement={setAudioEl}
-				volume={muted ? 0 : preferences.volume}
+				volume={muted ? 0 : preferences.volume * fade}
 			/>
 
 			{show?.source?.source === "mixcloud" && (

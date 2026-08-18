@@ -969,3 +969,14 @@
 	margin-top: 5px;
 	line-height: 1.4;
 }
+
+.sleepOptions {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+.historyDetail {
+	color: #666666;
+}
