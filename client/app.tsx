@@ -11,7 +11,11 @@ import { useMixtapes } from "./lib/mixtapes"
 import { useAudioOutput, useAudioOutputs } from "./lib/outputs"
 import { usePreferences } from "./lib/preferences"
 import { type SortOrder, useSearch } from "./lib/search"
-import { useStreamHealth, useStreamInfo } from "./lib/stream-info"
+import {
+	useOutputSampleRate,
+	useStreamHealth,
+	useStreamInfo,
+} from "./lib/stream-info"
 import { useEvent } from "./lib/use-event"
 import { useKeydown } from "./lib/use-keydown"
 import { useOffline } from "./lib/use-offline"
@@ -314,6 +318,7 @@ export function NTS() {
 		[active, src],
 	)
 	const streamInfo = useStreamInfo(probeSrc)
+	const outputSampleRate = useOutputSampleRate(preferences.outputDevice)
 	// Only a genuine reconnect counts. The first connect is not a recovery.
 	const health = useStreamHealth(audioEl, Boolean(active), status === "reconnecting")
 
@@ -477,6 +482,7 @@ export function NTS() {
 					sleepRemaining={sleep.remaining}
 					onSleep={sleep.set}
 					onCancelSleep={sleep.cancel}
+					outputSampleRate={outputSampleRate}
 					status={status}
 					playing={Boolean(active)}
 					volume={preferences.volume}

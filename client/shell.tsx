@@ -744,6 +744,7 @@ type PanelProps = {
 	sleepRemaining: number | null
 	onSleep: (minutes: number) => void
 	onCancelSleep: () => void
+	outputSampleRate: number | null
 }
 
 function HealthGraph(props: { health: StreamHealth; height: number }) {
@@ -860,6 +861,7 @@ export function StreamPanel(props: PanelProps) {
 		sleepRemaining,
 		onSleep,
 		onCancelSleep,
+		outputSampleRate,
 	} = props
 
 	const measured = probe?.measured ?? null
@@ -872,6 +874,20 @@ export function StreamPanel(props: PanelProps) {
 		: loading
 			? "Probing…"
 			: "Not measured"
+
+	// A stream at one rate played on a device set to another is resampled by the
+	// OS before it is heard. Only worth stating when both numbers are known.
+	const streamRate = measured?.sampleRate ?? null
+	const resampling =
+		streamRate && outputSampleRate
+			? {
+					mismatched: Math.abs(streamRate - outputSampleRate) > 1,
+					label:
+						Math.abs(streamRate - outputSampleRate) > 1
+							? `Device at ${(outputSampleRate / 1000).toFixed(1)} kHz · resampled from ${(streamRate / 1000).toFixed(1)} kHz`
+							: `Device at ${(outputSampleRate / 1000).toFixed(1)} kHz · no resampling`,
+				}
+			: null
 
 	const minutes = Math.floor(health.uptime / 60)
 	const seconds = health.uptime % 60
@@ -895,6 +911,15 @@ export function StreamPanel(props: PanelProps) {
 				{measured ? measured.codec : loading ? "Reading stream…" : "Unverified"}
 			</div>
 			<div className={css.panelSub}>{quality}</div>
+			{resampling ? (
+				<div
+					className={classnames(css.panelSub, {
+						[css.resampling]: resampling.mismatched,
+					})}
+				>
+					{resampling.label}
+				</div>
+			) : null}
 
 			<HealthGraph health={health} height={detailed ? 62 : 34} />
 			<div className={css.graphLabel}>
@@ -1000,6 +1025,14 @@ export function StreamPanel(props: PanelProps) {
 							value={measured ? String(measured.frames) : "-"}
 						/>
 						<Stat label="Served by" value={reported?.station || "-"} />
+						<Stat
+							label="Device rate"
+							value={
+								outputSampleRate
+									? `${(outputSampleRate / 1000).toFixed(1)} kHz`
+									: "-"
+							}
+						/>
 					</div>
 
 					<div className={css.compare}>
@@ -1046,6 +1079,7 @@ type FullProps = {
 	sleepRemaining: number | null
 	onSleep: (minutes: number) => void
 	onCancelSleep: () => void
+	outputSampleRate: number | null
 	status: PlayerStatus
 	playing: boolean
 	volume: number
@@ -1074,6 +1108,7 @@ export function FullScreen(props: FullProps) {
 		sleepRemaining,
 		onSleep,
 		onCancelSleep,
+		outputSampleRate,
 		status,
 		playing,
 		volume,
@@ -1196,6 +1231,7 @@ export function FullScreen(props: FullProps) {
 						sleepRemaining={sleepRemaining}
 						onSleep={onSleep}
 						onCancelSleep={onCancelSleep}
+						outputSampleRate={outputSampleRate}
 					/>
 				</div>
 			</div>

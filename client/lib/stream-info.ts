@@ -184,3 +184,62 @@ export function smooth(values: number[], factor = 0.25): number[] {
 	}
 	return out
 }
+
+/**
+ * The sample rate the operating system is running the output device at.
+ *
+ * This creates a bare AudioContext and reads its rate. It deliberately does not
+ * touch the audio element: calling createMediaElementSource captures the
+ * element's output into the graph, and on this MSE-backed pipeline the graph
+ * receives nothing, which would silence playback. Constructing a context on its
+ * own has no such effect.
+ *
+ * If the device runs at a different rate from the broadcast, every sample is
+ * resampled before it is heard. That is inaudible to most people most of the
+ * time, but it is a real difference and it is invisible unless something says so.
+ */
+export function useOutputSampleRate(outputDevice: string): number | null {
+	const [rate, setRate] = useState<number | null>(null)
+
+	useEffect(
+		function () {
+			let context: AudioContext | null = null
+			let cancelled = false
+
+			try {
+				context = new AudioContext()
+			} catch {
+				return
+			}
+
+			const ctx = context
+
+			// The context reports the rate of whichever device it is bound to, so
+			// follow the chosen output where the runtime supports it.
+			const withSink = ctx as AudioContext & {
+				setSinkId?: (id: string) => Promise<void>
+			}
+
+			function publish() {
+				if (!cancelled) {
+					setRate(ctx.sampleRate)
+				}
+			}
+
+			if (outputDevice && typeof withSink.setSinkId === "function") {
+				withSink.setSinkId(outputDevice).then(publish, publish)
+			} else {
+				publish()
+			}
+
+			return function () {
+				cancelled = true
+				// Contexts are a limited resource; do not leak one per device change.
+				ctx.close().catch(() => {})
+			}
+		},
+		[outputDevice],
+	)
+
+	return rate
+}
