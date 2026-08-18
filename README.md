@@ -10,24 +10,45 @@ in this app to them.
 
 ## Download
 
-**[Download for Windows](https://github.com/nicholaspjm/nts-desktop/releases/latest)** - grab the `.exe` from the latest release, run it, done. No developer tools needed.
+Take the file for your machine from the
+**[latest release](https://github.com/nicholaspjm/nts-desktop/releases/latest)**:
 
-Windows will probably show a blue "Windows protected your PC" box the first time,
-because the app is not code signed. Click **More info**, then **Run anyway**. It
-installs for your user only, so it never asks for an administrator password.
+| File | For |
+| --- | --- |
+| `NTS-Desktop-Windows.exe` | Windows |
+| `NTS-Desktop-Mac-Apple-Silicon.dmg` | Macs with an M1, M2, M3 or M4 chip |
+| `NTS-Desktop-Mac-Intel.dmg` | Older Macs with an Intel chip |
 
-Once installed it appears in the Start Menu and Windows search as **NTS Desktop**.
+Not sure which Mac you have? Click the Apple menu, then **About This Mac**. If
+the Chip line says Apple M-anything, take the Apple Silicon one.
+
+### Windows
+
+Run the `.exe`. Windows shows a blue "Windows protected your PC" box because
+the app is not code signed: click **More info**, then **Run anyway**. It installs
+for your user only and never asks for an administrator password, then appears in
+the Start Menu and Windows search as **NTS Desktop**.
 
 ### macOS
 
-**[Download for macOS](https://github.com/nicholaspjm/nts-desktop/releases/latest)** - take the `.dmg` from the latest release. It covers both Apple Silicon and Intel Macs.
+Open the `.dmg` and drag **NTS Desktop** to Applications. Then open Terminal
+(press Cmd+Space, type Terminal) and run this line:
 
-The app is unsigned and not notarised, so Gatekeeper will refuse it on first
-open. Right click the app and choose **Open**, then confirm. Double clicking
-will only offer to move it to the bin, so use right click the first time.
+```
+xattr -cr "/Applications/NTS Desktop.app"
+```
 
-macOS support is newer than the Windows side and less exercised. If something
-looks wrong there, please open an issue saying what happened.
+Now open the app normally.
+
+That one command is needed because the app is not signed by an Apple developer
+account, which costs money every year. macOS marks anything downloaded from the
+internet as quarantined, and for unsigned apps it refuses to open them at all,
+reporting the app as **damaged** and offering to move it to the Bin. The app is
+not damaged; the command simply clears that quarantine flag.
+
+If you would rather not run a Terminal command, build it yourself from source
+instead, using the steps below. Software built on your own machine is never
+quarantined.
 
 ### Building it yourself
 

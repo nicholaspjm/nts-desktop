@@ -8,6 +8,11 @@ directories:
 mac:
   icon: app/icon.icns
   category: public.app-category.music
+  # No certificate, so no real signature. null makes electron-builder apply an
+  # ad-hoc one, which Apple Silicon requires: an arm64 binary with no signature
+  # at all is refused outright and reported as "damaged".
+  identity: null
+  artifactName: "NTS-Desktop-${version}-mac-${arch}.${ext}"
   target:
     - target: dmg
       arch:
@@ -17,6 +22,7 @@ mac:
 
 win:
   icon: logos/logo.png
+  artifactName: "NTS-Desktop-${version}-Windows.${ext}"
   target:
     - target: nsis
       arch:

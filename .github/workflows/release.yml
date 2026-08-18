@@ -55,8 +55,22 @@ jobs:
       # and the README explains how to get past the resulting warnings.
       - name: Build installer
         run: pnpm exec electron-builder build ${{ matrix.args }} --publish=never
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      # arm64 and x64 mean nothing to most people downloading this.
+      - name: Give the installers readable names
+        shell: bash
+        run: |
+          cd bundle
+          for f in *-mac-arm64.dmg; do
+            [ -e "$f" ] && mv "$f" "NTS-Desktop-Mac-Apple-Silicon.dmg"
+          done
+          for f in *-mac-x64.dmg; do
+            [ -e "$f" ] && mv "$f" "NTS-Desktop-Mac-Intel.dmg"
+          done
+          for f in *-Windows.exe; do
+            [ -e "$f" ] && mv "$f" "NTS-Desktop-Windows.exe"
+          done
+          ls -la
 
       - name: Upload
         uses: actions/upload-artifact@v4
