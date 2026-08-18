@@ -6,6 +6,7 @@ import { type Preferences, PreferencesProvider } from "~/client/lib/preferences"
 
 const defaults: Preferences = {
 	volume: 1,
+	outputDevice: "",
 }
 
 function render(preferences: Preferences) {

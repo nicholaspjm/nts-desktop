@@ -577,6 +577,40 @@
 	overflow-wrap: anywhere;
 }
 
+.barFormat {
+	flex: none;
+	font-size: 11px;
+	letter-spacing: 0.07em;
+	color: #8a8a8a;
+	border: 1px solid #262626;
+	padding: 3px 7px;
+	font-variant-numeric: tabular-nums;
+}
+
+.output {
+	margin-top: 12px;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.select {
+	flex: 1;
+	min-width: 0;
+	appearance: none;
+	background: #121212;
+	border: 1px solid #2b2b2b;
+	color: white;
+	font: inherit;
+	font-size: 13px;
+	padding: 5px 8px;
+	cursor: pointer;
+}
+
+.select:hover {
+	border-color: #555;
+}
+
 .graph {
 	display: block;
 	width: 100%;
@@ -711,4 +745,15 @@
 .empty {
 	color: #6a6a6a;
 	font-size: 14px;
+}
+
+/* macOS: the OS draws traffic lights into the inset title bar, so leave room
+   for them and don't draw a second set of controls. */
+
+.titlebarMac {
+	padding-left: 78px;
+}
+
+.hidden {
+	display: none;
 }

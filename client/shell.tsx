@@ -5,6 +5,7 @@ import logo from "../logos/nts.svg"
 
 import type { ChannelInfo, Info, ShowInfo } from "./lib/live"
 import type { Mixtape } from "./lib/mixtapes"
+import type { AudioOutput } from "./lib/outputs"
 import { type StreamHealth, type StreamProbe, smooth } from "./lib/stream-info"
 import type { PlayerStatus } from "./player"
 
@@ -43,6 +44,10 @@ export function sameSource(a: Source | null, b: Source | null): boolean {
 	}
 	return false
 }
+
+// macOS draws its own traffic lights into the inset title bar, so the app must
+// not draw a second set of window controls there.
+const isMac = navigator.userAgent.includes("Mac OS X")
 
 function time(date: Date): string {
 	return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -96,7 +101,7 @@ export function TitleBar(props: TitleBarProps) {
 	]
 
 	return (
-		<header className={css.titlebar}>
+		<header className={classnames(css.titlebar, { [css.titlebarMac]: isMac })}>
 			<div className={css.menuWrap} ref={menu}>
 				<button
 					type="button"
@@ -133,7 +138,7 @@ export function TitleBar(props: TitleBarProps) {
 
 			<div className={css.drag} />
 
-			<div className={css.windowControls}>
+			<div className={classnames(css.windowControls, { [css.hidden]: isMac })}>
 				<button
 					type="button"
 					className={css.iconButton}
@@ -439,6 +444,9 @@ type PanelProps = {
 	status: PlayerStatus
 	detailed: boolean
 	onDetailed: (detailed: boolean) => void
+	outputs: AudioOutput[]
+	outputDevice: string
+	onOutputDevice: (id: string) => void
 }
 
 function HealthGraph(props: { health: StreamHealth; height: number }) {
@@ -535,7 +543,17 @@ function contentTypeLabel(contentType: string): string {
 }
 
 export function StreamPanel(props: PanelProps) {
-	const { probe, loading, health, status, detailed, onDetailed } = props
+	const {
+		probe,
+		loading,
+		health,
+		status,
+		detailed,
+		onDetailed,
+		outputs,
+		outputDevice,
+		onOutputDevice,
+	} = props
 
 	const measured = probe?.measured ?? null
 	const reported = probe?.reported ?? null
@@ -612,6 +630,26 @@ export function StreamPanel(props: PanelProps) {
 						</div>
 					</div>
 
+					{outputs.length > 0 ? (
+						<label className={css.output}>
+							<span className={css.compareLabel}>Output</span>
+							<select
+								className={css.select}
+								value={outputDevice}
+								onChange={(e) => onOutputDevice(e.target.value)}
+							>
+								<option value="">System default</option>
+								{outputs
+									.filter((o) => o.id !== "default")
+									.map((o) => (
+										<option key={o.id} value={o.id}>
+											{o.label}
+										</option>
+									))}
+							</select>
+						</label>
+					) : null}
+
 					{probe?.edge ? <div className={css.panelFoot}>{probe.edge}</div> : null}
 				</>
 			) : null}
@@ -626,6 +664,9 @@ type FullProps = {
 	health: StreamHealth
 	detailed: boolean
 	onDetailed: (detailed: boolean) => void
+	outputs: AudioOutput[]
+	outputDevice: string
+	onOutputDevice: (id: string) => void
 	status: PlayerStatus
 	playing: boolean
 	volume: number
@@ -642,6 +683,9 @@ export function FullScreen(props: FullProps) {
 		health,
 		detailed,
 		onDetailed,
+		outputs,
+		outputDevice,
+		onOutputDevice,
 		status,
 		playing,
 		volume,
@@ -738,6 +782,9 @@ export function FullScreen(props: FullProps) {
 						status={status}
 						detailed={detailed}
 						onDetailed={onDetailed}
+						outputs={outputs}
+						outputDevice={outputDevice}
+						onOutputDevice={onOutputDevice}
 					/>
 				</div>
 			</div>
@@ -747,6 +794,7 @@ export function FullScreen(props: FullProps) {
 
 type BarProps = {
 	now: NowPlaying
+	probe: StreamProbe | null
 	status: PlayerStatus
 	playing: boolean
 	volume: number
@@ -756,8 +804,15 @@ type BarProps = {
 }
 
 export function NowPlayingBar(props: BarProps) {
-	const { now, status, playing, volume, onToggle, onVolume, onExpand } = props
+	const { now, probe, status, playing, volume, onToggle, onVolume, onExpand } =
+		props
 	const { title, subtitle, image } = now
+
+	// Compact, and only ever what the frames proved.
+	const measured = probe?.measured
+	const format = measured
+		? `${measured.bitrate}k ${measured.codec.includes("Layer III") ? "MP3" : measured.codec}`
+		: null
 
 	return (
 		<div className={css.bar}>
@@ -783,6 +838,7 @@ export function NowPlayingBar(props: BarProps) {
 				<div className={css.barTitle}>{title}</div>
 				<div className={css.barSub}>{subtitle}</div>
 			</div>
+			{format ? <div className={css.barFormat}>{format}</div> : null}
 			<div className={css.status}>
 				<StatusDot status={status} />
 				{STATUS_LABEL[status]}

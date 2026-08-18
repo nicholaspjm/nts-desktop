@@ -7,6 +7,7 @@ import { streams } from "~/lib/stream"
 import { electron } from "./electron"
 import { useLiveInfo } from "./lib/live"
 import { useMixtapes } from "./lib/mixtapes"
+import { useAudioOutput, useAudioOutputs } from "./lib/outputs"
 import { usePreferences } from "./lib/preferences"
 import { useStreamHealth, useStreamInfo } from "./lib/stream-info"
 import { useEvent } from "./lib/use-event"
@@ -210,6 +211,16 @@ export function NTS() {
 		electron.send("window", action)
 	}, [])
 
+	const outputs = useAudioOutputs()
+	useAudioOutput(audioEl, preferences.outputDevice)
+
+	const setOutputDevice = useCallback(
+		function (outputDevice: string) {
+			updatePreferences((prefs) => ({ ...prefs, outputDevice }))
+		},
+		[updatePreferences],
+	)
+
 	const streamInfo = useStreamInfo(src)
 	// Only a genuine reconnect counts. The first connect is not a recovery.
 	const health = useStreamHealth(audioEl, Boolean(active), status === "reconnecting")
@@ -286,6 +297,7 @@ export function NTS() {
 				</main>
 				<NowPlayingBar
 					now={now}
+					probe={streamInfo.probe}
 					status={status}
 					playing={Boolean(active)}
 					volume={preferences.volume}
@@ -303,6 +315,9 @@ export function NTS() {
 					health={health}
 					detailed={detailedStream}
 					onDetailed={setDetailedStream}
+					outputs={outputs}
+					outputDevice={preferences.outputDevice}
+					onOutputDevice={setOutputDevice}
 					status={status}
 					playing={Boolean(active)}
 					volume={preferences.volume}

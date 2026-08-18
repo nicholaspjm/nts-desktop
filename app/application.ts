@@ -126,7 +126,9 @@ export class NTSApplication {
 		globalShortcut.register("Control+N", () => this.toggle())
 
 		// No File/Edit/View strip: those actions live behind the overflow menu.
-		Menu.setApplicationMenu(null)
+		// macOS is different: removing the application menu also removes Cmd+Q,
+		// Cmd+W and clipboard shortcuts, so keep a standard minimal one there.
+		Menu.setApplicationMenu(mac ? makeAppMenu() : null)
 
 		await this.liveTracks.init()
 		await this.loadClient()
@@ -337,6 +339,17 @@ export class NTSApplication {
 	}
 }
 
+const mac = process.platform === "darwin"
+
+function makeAppMenu(): Menu {
+	return Menu.buildFromTemplate([
+		{ role: "appMenu" },
+		{ role: "editMenu" },
+		{ role: "viewMenu" },
+		{ role: "windowMenu" },
+	])
+}
+
 function makeWindow(): BrowserWindow {
 	// A normal application window, not the old 360x270 frameless popup that was
 	// pinned to a screen corner and vanished the moment it lost focus.
@@ -346,8 +359,11 @@ function makeWindow(): BrowserWindow {
 		minWidth: 880,
 		minHeight: 560,
 		show: false,
-		// Chromeless: the app draws its own title bar and window controls.
-		frame: false,
+		// Chromeless. On macOS keep the frame so the traffic lights survive and
+		// inset them into our own title bar; elsewhere draw the controls ourselves.
+		...(mac
+			? { titleBarStyle: "hiddenInset" as const, trafficLightPosition: { x: 13, y: 10 } }
+			: { frame: false }),
 		resizable: true,
 		backgroundColor: "#111111",
 		title: "NTS",

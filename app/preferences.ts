@@ -4,10 +4,13 @@ import { app } from "electron"
 
 export type Preferences = {
 	volume: number
+	// Chosen audio output. Empty means the system default.
+	outputDevice: string
 }
 
-const defaults = {
+const defaults: Preferences = {
 	volume: 0.8,
+	outputDevice: "",
 }
 
 const filename = path.join(app.getPath("userData"), "preferences.json")
@@ -15,7 +18,9 @@ const filename = path.join(app.getPath("userData"), "preferences.json")
 export async function read(): Promise<Preferences> {
 	try {
 		const content = await fs.readFile(filename, "utf-8")
-		return JSON.parse(content)
+		// Merge over defaults so a file written by an older build, which has no
+		// outputDevice, doesn't come back with the field missing.
+		return { ...defaults, ...JSON.parse(content) }
 	} catch (err) {
 		return defaults
 	}
