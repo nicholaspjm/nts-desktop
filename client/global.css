@@ -1,27 +1,26 @@
-/* Palette, taken from the live nts.live styles rather than invented: pure black
-   ground, white type, #e81717 red, and a short grey ramp. Every colour in the
-   app refers to one of these, so nothing drifts out of step again. */
+/* The app's palette, defined once. These are the values the main screen was
+   originally designed with: a darker ground and dimmer greys than nts.live
+   itself uses. Every colour in the app refers to one of these, so the screens
+   stay in step with each other without flattening the look. */
 
 :root {
 	--nts-black: #000000;
-	--nts-panel: #121212;
+	--nts-panel: #0b0b0b;
 	--nts-surface: #151515;
 	--nts-line-soft: #202020;
-	--nts-hover-bg: #222222;
-	--nts-line: #333333;
-	--nts-line-strong: #555555;
+	--nts-hover-bg: #1e1e1e;
+	--nts-line: #2b2b2b;
+	--nts-line-strong: #4a4a4a;
 
 	--nts-text: #ffffff;
-	--nts-text-dim: #cccccc;
-	--nts-text-muted: #999999;
-	--nts-text-faint: #666666;
+	--nts-text-dim: #a5a5a5;
+	--nts-text-muted: #8a8a8a;
+	--nts-text-faint: #6a6a6a;
 
-	--nts-red: #e81717;
+	--nts-red: #e6002d;
 	--nts-ok: #35c759;
 	--nts-warn: #ffb02e;
-}
 
-:root {
 	/* Native widgets the OS draws for us - select popups, scrollbars, form
 	   controls - default to a light palette and render unreadable on this UI.
 	   Declaring the scheme once here fixes every one of them. */
