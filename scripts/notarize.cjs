@@ -45,9 +45,13 @@ exports.default = async function afterSign(context) {
 		`${context.packager.appInfo.productFilename}.app`,
 	)
 
-	// Required lazily so builds without the credentials, and builds on other
-	// platforms, do not need the package resolved at all.
-	const { notarize } = require("@electron/notarize")
+	// Loaded lazily so builds without credentials, and builds on other platforms,
+	// never resolve the package at all. It has to be import() rather than
+	// require: @electron/notarize 3 is ESM only, and this hook stays CommonJS
+	// because that is what electron-builder loads. Node 22.12 and newer will
+	// require() an ES module happily, which is exactly why this slipped through
+	// locally and failed on CI, which pins 22.11.
+	const { notarize } = await import("@electron/notarize")
 
 	// Apple queues these. Minutes is normal, longer is not unheard of.
 	console.log(`notarising ${app}, this usually takes a few minutes`)
