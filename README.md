@@ -106,92 +106,54 @@ work is the foundation, and the MIT licence and copyright are retained in
 
 ## What it does
 
-### Keeping the stream alive
+**Keeps playing.** The NTS streams are plain continuous connections, so when one
+drops the audio just stops, often without the browser raising an error. A
+watchdog notices by watching playback position rather than waiting for an error,
+reconnects with a backoff, and resets the moment audio returns. HLS is the
+default because it buffers around a minute against the direct stream's two
+seconds, so a stutter has to last a long time to be audible. Both are the same
+256kbps audio. Playback continues at full quality while minimised.
 
-This is the reason the app exists. The NTS streams are plain continuous
-connections with no manifest, so when one drops the audio simply stops, often
-without the browser raising an error at all.
+**Listening**
 
-- A watchdog that notices silence by watching playback position rather than
-  waiting for an error that may never come
-- Reconnects after ten seconds of a stalled clock, backing off from one second
-  to thirty, varying the URL each time so a dead connection is not handed back
-- Backoff resets the moment audio flows again, so an unrelated drop later
-  recovers immediately
-- Gives up only on sources that genuinely cannot be decoded, rather than
-  retrying forever
-- Reconnects instantly when the network returns instead of sitting out the
-  backoff
-- Plays through being minimised or in the background at full quality, with no
-  throttling
-- HLS delivery by default, which buffers 49 to 61 seconds against the direct
-  stream's 1.7 to 2.3, so a stutter has to last a very long time to be audible.
-  Both are the same 256kbps audio, and you can switch with the tradeoff
-  explained in the app
-
-### Listening
-
-- Both live channels, with artwork, times, location, description, genre and
-  mood tags
-- All Infinite Mixtapes, with an optional AAC stream where NTS publishes one
+- Both live channels, with artwork, times, location, description and tags
+- All Infinite Mixtapes, with AAC where NTS publishes it
 - The full 18 slot schedule for both channels
 - Archive search and playback, including pasting an `nts.live` show link
-- Show and episode detail before you commit to playing
-- Listening history
-- Open on NTS, which opens whatever is playing on the site
-- Hardware media key support
-- A sleep timer that fades out rather than cutting
-- Audio output device selection
+- Show detail before you play, listening history, and Open on NTS
+- Media keys, a sleep timer that fades out, and output device selection
 
-### Knowing what you are hearing
+**Stream diagnostics**
 
-- Bitrate, codec, sample rate and channel mode decoded from the audio itself,
-  not taken on trust from the server's headers
-- Both values shown side by side, so a server misreporting its own stream is
-  visible rather than hidden
-- A warning when the stream's sample rate does not match your output device,
-  which means the system is resampling
-- A buffer history graph marking every stall and reconnect
-- Connection status throughout: connecting, playing, reconnecting or failed
+- Bitrate, codec, sample rate and channel mode decoded from the audio itself
+  rather than taken on trust from the server's headers, with both shown side by
+  side so a misreporting server is visible
+- A warning when the stream's sample rate does not match your output device
+- A buffer graph marking every stall and reconnect
 
-### The window itself
+**The window**
 
-- No OS title bar and no menu strip; everything lives behind one control
-- Full screen now playing view
-- Station switching from the bottom bar
-- One palette across every screen, and no gradients
+- No OS title bar or menu strip, a full screen now playing view, and station
+  switching from the bottom bar
+- Update checks, a crash log, and problem reporting
+- Notarised on macOS, so it opens with no warning. Installs per user on Windows,
+  with no administrator password
 
-### Housekeeping
+Live tracklists are an NTS Supporter feature and stay behind their sign in. There
+is no equaliser: analysing audio in the browser requires the stream to be
+requested in a mode the redirect does not permit, which stops playback outright.
 
-- Checks for updates by reading the releases redirect rather than the GitHub
-  API, which allows only 60 unauthenticated requests an hour per address and so
-  fails for everyone behind one office or carrier connection
-- A crash log written to disk
-- Problem reporting that opens the issues page
-- Signed and notarised by Apple on macOS, so it opens with no warning
-- Installs per user on Windows, with no administrator password
-
-### What it deliberately does not do
-
-- **Live tracklists.** These are an NTS Supporter feature, behind a config file
-  that is encrypted in the upstream repository and cannot be obtained. No local
-  build can ever show them.
-- **Equalisation or level metering.** Analysing audio in the browser requires
-  the stream to be requested in CORS mode, and the redirect NTS serves carries
-  no header permitting that, so asking for it stops playback outright. This was
-  tried three times and abandoned on evidence.
-- **Windows code signing.** That needs its own certificate, so SmartScreen still
-  shows a warning on first run.
-
-## How this app gets its data, and the limits it keeps
+## How this app gets its data
 
 NTS publishes no public API documentation. Everything here uses the same
 endpoints the nts.live website calls from an ordinary browser session, found by
 watching the site's own network requests. That makes it undocumented rather than
-private, and it can change without notice. These are the rules this app holds
-itself to.
+private, and it can change without notice.
 
-### What it reads
+Every request is one the website itself makes, using no authentication. Audio is
+streamed for listening exactly as the site does: nothing is recorded, cached to
+disk, re-hosted or downloaded. Titles, descriptions and artwork are shown as NTS
+serves them and stay theirs.
 
 | Purpose | Endpoint |
 | --- | --- |
@@ -200,47 +162,6 @@ itself to.
 | Archive search | `www.nts.live/api/v2/search` |
 | A single archive show | `www.nts.live/api/v2/shows/…` |
 | Audio | `stream-relay-geo.ntslive.net`, `stream-mixtape-geo.ntslive.net`, and the `radiomast.io` CDN they redirect to |
-
-### The limits
-
-**Only what a browser would fetch anyway.** Every request is one the website
-itself makes. No endpoint is reached by guessing at internal or admin routes,
-and nothing is accessed that a logged out visitor could not already load.
-
-**No authentication, and no working around it.** The app signs into nothing. NTS
-gates some features behind an NTS Supporter subscription, most visibly live
-tracklists. Those stay gated: the app opens the real NTS page and asks you to
-sign in there, rather than trying to reconstruct the data another way. When the
-live stream's ICY metadata turned out to carry an empty track title, that was
-reported as a gap rather than filled by scraping something else.
-
-**Streams are played, never captured.** Audio is streamed for immediate
-listening exactly as the website does. The app does not record, cache to disk,
-re-host or redistribute any audio, and does not download archive shows. Archive
-playback uses the same Mixcloud and SoundCloud players NTS embeds, so plays are
-counted by those services as normal.
-
-**Light on their servers.** Schedule polling is driven by when the current show
-actually ends rather than a busy timer. Search is debounced so typing does not
-fire a request per keystroke. The stream probe reads roughly 64 KB and then
-aborts the connection instead of leaving a second audio stream open. Nothing is
-crawled in bulk and no endpoint is polled in a tight loop.
-
-**Their words and pictures stay theirs.** Show titles, descriptions, artwork and
-tracklists are displayed as NTS serves them, attributed to NTS, and are not
-altered or passed off as this project's own. Artwork is loaded from their CDN
-rather than copied into this repository.
-
-**Attribution and identity.** The app is clearly labelled unofficial. The NTS
-name and logo identify the service it plays and imply no endorsement. The mark
-in `logos/nts.svg` is taken from the NTS site header for that identification
-only, and remains NTS's trademark.
-
-### If NTS would rather this did not exist
-
-This is a personal listening client, written because the browser player kept
-dropping out. If anyone at NTS objects to any part of it, open an issue and it
-will be changed or taken down.
 
 ## Licence
 
