@@ -31,29 +31,12 @@ the Start Menu and Windows search as **NTS Desktop**.
 
 ### macOS
 
-Open the `.dmg` and drag **NTS Desktop** to Applications. Then open Terminal
-(press Cmd+Space, type Terminal) and run this line:
+Open the `.dmg` and drag **NTS Desktop** to Applications, then open it. That is
+the whole thing. The app is signed and notarised by Apple, so it launches like
+anything else, with no warning and no Terminal.
 
-```
-xattr -cr "/Applications/NTS Desktop.app"
-```
-
-Now open the app normally.
-
-If you would rather not touch Terminal: try opening the app, let macOS refuse,
-then go to **System Settings > Privacy & Security**, scroll down, and click
-**Open Anyway** next to the message about NTS Desktop.
-
-macOS will say it "could not verify NTS Desktop is free of malware". That is
-what it says about any app that has not been notarised by Apple, which requires
-a paid Apple developer account. It is not a finding about this app: nothing has
-been scanned and nothing suspicious was detected. The app is ad-hoc signed, so
-it is not tampered with after building, but only notarisation removes that
-message, and the source is here to read.
-
-Right clicking and choosing Open used to be enough. On macOS 15 and later Apple
-removed that shortcut for unnotarised apps, so one of the two routes above is
-now needed.
+Versions before 0.7.1 were not notarised and needed a command run against them
+first. If you followed those instructions before, you can forget them.
 
 ### Building it yourself
 
@@ -93,7 +76,18 @@ repository secrets under Settings, Secrets and variables, Actions:
 
 All five are optional and the build degrades rather than failing: without the
 certificate it signs ad-hoc, and without the key it skips notarisation. A fork
-with no secrets set still produces working installers.
+with no secrets set still produces working installers, they just warn on first
+launch.
+
+Every release build verifies itself afterwards, reading the signing authority
+back off the packaged app and asking Gatekeeper what it makes of the result. A
+signed-but-unnotarised app is indistinguishable from a notarised one inside the
+build, and only the second kind opens without a warning, so the build says which
+it produced rather than leaving it to be discovered on someone's machine.
+
+The certificate expires on 1 February 2027. Builds notarised before then keep
+working afterwards, because the timestamp outlives the certificate, but new ones
+will need a fresh one.
 
 The Windows build is separate and still unsigned. Silencing SmartScreen needs
 its own code-signing certificate, which is a different purchase.
