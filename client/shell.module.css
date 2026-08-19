@@ -440,7 +440,12 @@
 	gap: 42px;
 	/* start, not center: centring pushes the top of tall content off screen */
 	align-items: start;
-	align-content: center;
+	/* "safe" matters here. Plain centring looks right until the content is taller
+	   than the window, at which point it centres the overflow too and puts the
+	   top of the content above the scroll origin, where no scrollbar can reach
+	   it. safe center falls back to start exactly when that would happen, so a
+	   short window crops nothing. */
+	align-content: safe center;
 	padding: 10px 54px 40px;
 }
 

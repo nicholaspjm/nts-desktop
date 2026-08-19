@@ -785,65 +785,96 @@ function HealthGraph(props: { health: StreamHealth; height: number }) {
 				return
 			}
 
-			const ratio = window.devicePixelRatio || 1
-			const width = el.clientWidth
-			// Use the prop rather than clientHeight so a change of size actually
-			// redraws, instead of waiting for the next health sample.
-			const h = height
-			el.width = Math.round(width * ratio)
-			el.height = Math.round(h * ratio)
-			ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
-			ctx.clearRect(0, 0, width, h)
+			function draw() {
+				if (!el || !ctx) {
+					return
+				}
+				const ratio = window.devicePixelRatio || 1
+				const width = el.clientWidth
+				// Laid out to nothing yet. Drawing now would size the bitmap to zero
+				// and leave it that way until the next health sample arrives.
+				if (width === 0) {
+					return
+				}
+				// Use the prop rather than clientHeight so a change of size actually
+				// redraws, instead of waiting for the next health sample.
+				const h = height
+				el.width = Math.round(width * ratio)
+				el.height = Math.round(h * ratio)
+				ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
+				ctx.clearRect(0, 0, width, h)
 
-			const points = health.history
-			if (points.length === 0) {
-				return
+				const points = health.history
+				if (points.length === 0) {
+					return
+				}
+
+				// The raw buffer trace is a sawtooth; smooth it so the graph shows the
+				// trend rather than the sampling noise.
+				const values = smooth(points.map((p) => p.buffered))
+
+				// Scale to the largest value seen, with a floor so a healthy flat line
+				// does not fill the frame and read as alarming.
+				const peak = Math.max(4, ...values)
+				const step = width / Math.max(1, values.length - 1)
+				const y = (v: number) => h - (v / peak) * (h - 3) - 1
+
+				// Smooth curve through the points rather than straight segments.
+				function trace(c: CanvasRenderingContext2D) {
+					c.moveTo(0, y(values[0]))
+					for (let i = 1; i < values.length; i++) {
+						const px = (i - 1) * step
+						const cx = i * step
+						const mid = (px + cx) / 2
+						c.bezierCurveTo(
+							mid,
+							y(values[i - 1]),
+							mid,
+							y(values[i]),
+							cx,
+							y(values[i]),
+						)
+					}
+				}
+
+				ctx.beginPath()
+				ctx.moveTo(0, h)
+				ctx.lineTo(0, y(values[0]))
+				trace(ctx)
+				ctx.lineTo((values.length - 1) * step, h)
+				ctx.closePath()
+				ctx.fillStyle = "rgba(230, 0, 45, 0.16)"
+				ctx.fill()
+
+				ctx.beginPath()
+				trace(ctx)
+				ctx.strokeStyle = "#e6002d"
+				ctx.lineWidth = 1.5
+				ctx.lineJoin = "round"
+				ctx.stroke()
+
+				// Mark every moment the watchdog was reconnecting.
+				ctx.fillStyle = "rgba(255, 176, 46, 0.85)"
+				points.forEach(function (point, i) {
+					if (point.reconnecting) {
+						ctx.fillRect(i * step - 1, 0, 2, h)
+					}
+				})
 			}
 
-			// The raw buffer trace is a sawtooth; smooth it so the graph shows the
-			// trend rather than the sampling noise.
-			const values = smooth(points.map((p) => p.buffered))
+			draw()
 
-			// Scale to the largest value seen, with a floor so a healthy flat line
-			// does not fill the frame and read as alarming.
-			const peak = Math.max(4, ...values)
-			const step = width / Math.max(1, values.length - 1)
-			const y = (v: number) => h - (v / peak) * (h - 3) - 1
-
-			// Smooth curve through the points rather than straight segments.
-			function trace(c: CanvasRenderingContext2D) {
-				c.moveTo(0, y(values[0]))
-				for (let i = 1; i < values.length; i++) {
-					const px = (i - 1) * step
-					const cx = i * step
-					const mid = (px + cx) / 2
-					c.bezierCurveTo(mid, y(values[i - 1]), mid, y(values[i]), cx, y(values[i]))
-				}
-			}
-
-			ctx.beginPath()
-			ctx.moveTo(0, h)
-			ctx.lineTo(0, y(values[0]))
-			trace(ctx)
-			ctx.lineTo((values.length - 1) * step, h)
-			ctx.closePath()
-			ctx.fillStyle = "rgba(230, 0, 45, 0.16)"
-			ctx.fill()
-
-			ctx.beginPath()
-			trace(ctx)
-			ctx.strokeStyle = "#e6002d"
-			ctx.lineWidth = 1.5
-			ctx.lineJoin = "round"
-			ctx.stroke()
-
-			// Mark every moment the watchdog was reconnecting.
-			ctx.fillStyle = "rgba(255, 176, 46, 0.85)"
-			points.forEach(function (point, i) {
-				if (point.reconnecting) {
-					ctx.fillRect(i * step - 1, 0, 2, h)
-				}
+			// A canvas bitmap does not resize with its element: the browser just
+			// stretches whatever was drawn last. Without this the graph is only
+			// correct at the width it happened to be drawn at, and every window
+			// resize smears it until the next sample arrives a second later.
+			const observer = new ResizeObserver(function () {
+				draw()
 			})
+			observer.observe(el)
+			return function () {
+				observer.disconnect()
+			}
 		},
 		[health, height],
 	)

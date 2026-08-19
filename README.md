@@ -106,18 +106,82 @@ work is the foundation, and the MIT licence and copyright are retained in
 
 ## What it does
 
-- Both live channels at once, with artwork, times, location, description, genre
-  and mood tags
+### Keeping the stream alive
+
+This is the reason the app exists. The NTS streams are plain continuous
+connections with no manifest, so when one drops the audio simply stops, often
+without the browser raising an error at all.
+
+- A watchdog that notices silence by watching playback position rather than
+  waiting for an error that may never come
+- Reconnects after ten seconds of a stalled clock, backing off from one second
+  to thirty, varying the URL each time so a dead connection is not handed back
+- Backoff resets the moment audio flows again, so an unrelated drop later
+  recovers immediately
+- Gives up only on sources that genuinely cannot be decoded, rather than
+  retrying forever
+- Reconnects instantly when the network returns instead of sitting out the
+  backoff
+- Plays through being minimised or in the background at full quality, with no
+  throttling
+- HLS delivery by default, which buffers 49 to 61 seconds against the direct
+  stream's 1.7 to 2.3, so a stutter has to last a very long time to be audible.
+  Both are the same 256kbps audio, and you can switch with the tradeoff
+  explained in the app
+
+### Listening
+
+- Both live channels, with artwork, times, location, description, genre and
+  mood tags
 - All Infinite Mixtapes, with an optional AAC stream where NTS publishes one
 - The full 18 slot schedule for both channels
-- Archive search and playback, including pasting an `nts.live` show link, with
-  the show's tracklist
-- A reconnect watchdog, because the streams are plain continuous connections
-  that otherwise go quiet and never resume
-- Stream diagnostics: bitrate, codec, sample rate and channel mode decoded from
-  the audio itself, plus a buffer history graph
+- Archive search and playback, including pasting an `nts.live` show link
+- Show and episode detail before you commit to playing
+- Listening history
+- Open on NTS, which opens whatever is playing on the site
+- Hardware media key support
+- A sleep timer that fades out rather than cutting
 - Audio output device selection
-- Hardware media keys, a sleep timer that fades out, and a listening history
+
+### Knowing what you are hearing
+
+- Bitrate, codec, sample rate and channel mode decoded from the audio itself,
+  not taken on trust from the server's headers
+- Both values shown side by side, so a server misreporting its own stream is
+  visible rather than hidden
+- A warning when the stream's sample rate does not match your output device,
+  which means the system is resampling
+- A buffer history graph marking every stall and reconnect
+- Connection status throughout: connecting, playing, reconnecting or failed
+
+### The window itself
+
+- No OS title bar and no menu strip; everything lives behind one control
+- Full screen now playing view
+- Station switching from the bottom bar
+- One palette across every screen, and no gradients
+
+### Housekeeping
+
+- Checks for updates by reading the releases redirect rather than the GitHub
+  API, which allows only 60 unauthenticated requests an hour per address and so
+  fails for everyone behind one office or carrier connection
+- A crash log written to disk
+- Problem reporting that opens the issues page
+- Signed and notarised by Apple on macOS, so it opens with no warning
+- Installs per user on Windows, with no administrator password
+
+### What it deliberately does not do
+
+- **Live tracklists.** These are an NTS Supporter feature, behind a config file
+  that is encrypted in the upstream repository and cannot be obtained. No local
+  build can ever show them.
+- **Equalisation or level metering.** Analysing audio in the browser requires
+  the stream to be requested in CORS mode, and the redirect NTS serves carries
+  no header permitting that, so asking for it stops playback outright. This was
+  tried three times and abandoned on evidence.
+- **Windows code signing.** That needs its own certificate, so SmartScreen still
+  shows a warning on first run.
 
 ## How this app gets its data, and the limits it keeps
 
