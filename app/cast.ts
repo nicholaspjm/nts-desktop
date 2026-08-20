@@ -26,7 +26,8 @@ const NS_HEARTBEAT = "urn:x-cast:com.google.cast.tp.heartbeat"
 const NS_RECEIVER = "urn:x-cast:com.google.cast.receiver"
 const NS_MEDIA = "urn:x-cast:com.google.cast.media"
 
-// The device drops a sender that stops pinging.
+// The device drops a sender that stops pinging, and expects a PONG back for
+// each PING it sends.
 const HEARTBEAT = 5_000
 
 // Status is pushed when it changes, but a stall can produce no event at all,
@@ -36,6 +37,11 @@ const STATUS_POLL = 5_000
 // Long enough not to trip on ordinary rebuffering, short enough to repair a
 // real stall before a listener gives up on it.
 const STALL_TIMEOUT = 20_000
+
+// A device already under another sender's exclusive control accepts the socket
+// and then never reports the app running. Without this the session sits in
+// "connecting" forever with nothing to show for it.
+const LAUNCH_TIMEOUT = 15_000
 
 const BACKOFF_MIN = 2_000
 const BACKOFF_MAX = 60_000
@@ -109,6 +115,10 @@ export class CastDiscovery {
 		}
 	}
 
+	/**
+	 * Releases the multicast socket. Devices already found are kept, so closing
+	 * the picker does not empty a list the user is about to reopen.
+	 */
 	stop(): void {
 		this.browser?.stop()
 		this.browser = null
@@ -149,6 +159,8 @@ function toDevice(service: Service): CastDevice | null {
 	}
 }
 
+type RetryKind = "reload" | "reconnect"
+
 /**
  * One connection to one device, with a watchdog over it.
  *
@@ -161,7 +173,10 @@ export class CastSession {
 	private heartbeatTimer: ReturnType<typeof setInterval> | null = null
 	private pollTimer: ReturnType<typeof setInterval> | null = null
 	private retryTimer: ReturnType<typeof setTimeout> | null = null
+	private launchTimer: ReturnType<typeof setTimeout> | null = null
+	private retryKind: RetryKind | null = null
 
+	private receiver: CastChannel | null = null
 	private media: CastChannel | null = null
 	private transportId: string | null = null
 	private sessionId: string | null = null
@@ -171,6 +186,9 @@ export class CastSession {
 	private progressedAt = 0
 	private attempts = 0
 	private closed = false
+	// Set when the device has refused the stream outright. Retrying that only
+	// buries the reason under an endless reconnect.
+	private failed = false
 
 	private state: CastState
 
@@ -179,7 +197,10 @@ export class CastSession {
 		private content: CastMedia,
 		private onState: (state: CastState) => void,
 	) {
-		this.state = { status: "connecting", device }
+		// Starts idle so the first report("connecting") is a real transition and
+		// actually reaches the renderer. Starting at "connecting" meant the UI sat
+		// on whatever it had while the session silently connected.
+		this.state = { status: "idle", device: null }
 	}
 
 	private report(status: CastStatus, error?: string): void {
@@ -198,41 +219,95 @@ export class CastSession {
 		return this.requestId
 	}
 
+	/**
+	 * Writes to a channel, treating a throw as proof the transport is dead.
+	 *
+	 * A failed write is the most reliable disconnection signal there is: more
+	 * reliable than waiting for an 'error' that a graceful close never produces.
+	 * These calls happen inside timers, where an uncaught throw would take the
+	 * whole main process, and the app, down with it.
+	 */
+	private trySend(channel: CastChannel | null, data: unknown): boolean {
+		if (!channel || this.closed) {
+			return false
+		}
+		try {
+			channel.send(data)
+			return true
+		} catch (err) {
+			this.handleTransportLoss(err instanceof Error ? err.message : "write failed")
+			return false
+		}
+	}
+
+	private handleTransportLoss(reason: string): void {
+		if (this.closed || this.failed) {
+			return
+		}
+		this.report("reconnecting", reason)
+		this.scheduleRetry("reconnect", () => {
+			this.teardown()
+			this.start()
+		})
+	}
+
 	start(): void {
 		this.closed = false
+		this.failed = false
 		this.report("connecting")
 
 		const client = new Client()
 		this.client = client
 
 		client.on("error", (err: Error) => {
-			this.report("reconnecting", err.message)
-			this.scheduleRetry(() => {
-				this.teardown()
-				this.start()
-			})
+			// Ignore a dead client that has already been replaced.
+			if (this.client !== client) {
+				return
+			}
+			this.handleTransportLoss(err.message)
+		})
+
+		// A device taken over by another sender, stopped from the Google Home app,
+		// or put to sleep closes the connection gracefully and emits no error at
+		// all. Without this the session would sit there believing it was fine.
+		client.on("close", () => {
+			if (this.client !== client) {
+				return
+			}
+			this.handleTransportLoss("the device closed the connection")
 		})
 
 		client.connect({ host: this.device.host, port: this.device.port }, () => {
 			const connection = this.channel("receiver-0", NS_CONNECTION)
 			const heartbeat = this.channel("receiver-0", NS_HEARTBEAT)
 			const receiver = this.channel("receiver-0", NS_RECEIVER)
+			this.receiver = receiver
 
 			connection.send({ type: "CONNECT" })
 
-			this.heartbeatTimer = setInterval(() => {
-				try {
-					heartbeat.send({ type: "PING" })
-				} catch {
-					// The socket died between check and write; the error handler
-					// registered above deals with it.
+			// The device pings the sender as well as being pinged, and drops a
+			// sender that does not answer. Without this it disconnects after a few
+			// seconds, which looks exactly like a broken stream.
+			heartbeat.on("message", (data) => {
+				if (data?.type === "PING") {
+					this.trySend(heartbeat, { type: "PONG" })
 				}
+			})
+
+			this.heartbeatTimer = setInterval(() => {
+				this.trySend(heartbeat, { type: "PING" })
 			}, HEARTBEAT)
 
 			receiver.on("message", (data) => {
+				if (data?.type === "LAUNCH_ERROR") {
+					this.reportFatal("the device would not start its media player")
+					return
+				}
+
 				if (data?.type !== "RECEIVER_STATUS") {
 					return
 				}
+
 				const status = data.status as
 					| {
 							applications?: {
@@ -254,6 +329,18 @@ export class CastSession {
 				}
 			})
 
+			// Nothing else notices a launch that never completes.
+			this.launchTimer = setTimeout(() => {
+				this.launchTimer = null
+				if (!this.closed && !this.transportId) {
+					this.report("reconnecting", "the device did not start playing")
+					this.scheduleRetry("reconnect", () => {
+						this.teardown()
+						this.start()
+					})
+				}
+			}, LAUNCH_TIMEOUT)
+
 			receiver.send({
 				type: "LAUNCH",
 				appId: DEFAULT_RECEIVER,
@@ -270,6 +357,26 @@ export class CastSession {
 	}
 
 	private attachMedia(transportId: string, sessionId: string): void {
+		// A device relaunching its receiver, or being taken over and handed back,
+		// arrives here a second time. Without clearing these first, the previous
+		// interval keeps running forever and the old channel keeps its listener.
+		if (this.pollTimer) {
+			clearInterval(this.pollTimer)
+			this.pollTimer = null
+		}
+		if (this.media) {
+			try {
+				this.media.close()
+			} catch {
+				// Already gone.
+			}
+			this.media = null
+		}
+		if (this.launchTimer) {
+			clearTimeout(this.launchTimer)
+			this.launchTimer = null
+		}
+
 		this.transportId = transportId
 		this.sessionId = sessionId
 
@@ -285,21 +392,17 @@ export class CastSession {
 		this.load()
 
 		this.pollTimer = setInterval(() => {
-			try {
-				media.send({ type: "GET_STATUS", requestId: this.nextId() })
-			} catch {
-				// Covered by the client error handler.
-			}
+			this.trySend(media, { type: "GET_STATUS", requestId: this.nextId() })
 			this.checkForStall()
 		}, STATUS_POLL)
 	}
 
 	private load(): void {
-		if (!this.media || !this.sessionId) {
+		if (!this.media || !this.sessionId || this.failed) {
 			return
 		}
 
-		this.media.send({
+		this.trySend(this.media, {
 			type: "LOAD",
 			requestId: this.nextId(),
 			sessionId: this.sessionId,
@@ -324,11 +427,31 @@ export class CastSession {
 		})
 	}
 
+	/** Volume on the device itself, since the local element is not in the path. */
+	setVolume(level: number, muted: boolean): void {
+		this.trySend(this.receiver, {
+			type: "SET_VOLUME",
+			requestId: this.nextId(),
+			volume: { level: Math.max(0, Math.min(1, level)), muted },
+		})
+	}
+
+	private reportFatal(reason: string): void {
+		// Terminal on purpose. Without the flag the stall watchdog would notice
+		// that nothing is playing, reload the stream the device already rejected,
+		// and keep doing so forever, hiding the actual reason behind it.
+		this.failed = true
+		if (this.retryTimer) {
+			clearTimeout(this.retryTimer)
+			this.retryTimer = null
+			this.retryKind = null
+		}
+		this.report("failed", reason)
+	}
+
 	private handleStatus(data: Record<string, unknown>): void {
 		if (data?.type === "LOAD_FAILED" || data?.type === "LOAD_CANCELLED") {
-			// Retrying a stream the device has rejected outright will not help,
-			// and would hide the reason behind an endless reconnect.
-			this.report("failed", "the device would not play this stream")
+			this.reportFatal("the device would not play this stream")
 			return
 		}
 
@@ -361,7 +484,7 @@ export class CastSession {
 				const reason = status.idleReason
 				if (typeof reason === "string" && reason !== "CANCELLED") {
 					this.report("reconnecting", `device went idle: ${reason}`)
-					this.scheduleRetry(() => this.reload())
+					this.scheduleRetry("reload", () => this.reload())
 				}
 				break
 			}
@@ -376,12 +499,12 @@ export class CastSession {
 	 * caught the same way.
 	 */
 	private checkForStall(): void {
-		if (this.closed || this.progressedAt === 0) {
+		if (this.closed || this.failed || this.progressedAt === 0) {
 			return
 		}
 		if (Date.now() - this.progressedAt > STALL_TIMEOUT) {
 			this.report("reconnecting", "playback stopped advancing")
-			this.scheduleRetry(() => this.reload())
+			this.scheduleRetry("reload", () => this.reload())
 		}
 	}
 
@@ -391,18 +514,34 @@ export class CastSession {
 		this.load()
 	}
 
-	private scheduleRetry(action: () => void): void {
-		// Never stack attempts: one in flight at a time.
-		if (this.closed || this.retryTimer !== null) {
+	/**
+	 * One retry in flight at a time, except that losing the transport outranks a
+	 * pending reload. A reload sends bytes down a socket that is already gone, so
+	 * letting it hold the only slot means the reconnect that would actually fix
+	 * the session never gets scheduled.
+	 */
+	private scheduleRetry(kind: RetryKind, action: () => void): void {
+		if (this.closed || this.failed) {
 			return
+		}
+
+		if (this.retryTimer !== null) {
+			const preempts = kind === "reconnect" && this.retryKind === "reload"
+			if (!preempts) {
+				return
+			}
+			clearTimeout(this.retryTimer)
+			this.retryTimer = null
 		}
 
 		const wait = Math.min(BACKOFF_MIN * 2 ** this.attempts, BACKOFF_MAX)
 		this.attempts += 1
+		this.retryKind = kind
 
 		this.retryTimer = setTimeout(() => {
 			this.retryTimer = null
-			if (!this.closed) {
+			this.retryKind = null
+			if (!this.closed && !this.failed) {
 				action()
 			}
 		}, wait)
@@ -422,24 +561,30 @@ export class CastSession {
 	}
 
 	private teardown(): void {
-		if (this.heartbeatTimer) {
-			clearInterval(this.heartbeatTimer)
-			this.heartbeatTimer = null
+		for (const timer of [this.heartbeatTimer, this.pollTimer] as const) {
+			if (timer) {
+				clearInterval(timer)
+			}
 		}
-		if (this.pollTimer) {
-			clearInterval(this.pollTimer)
-			this.pollTimer = null
+		this.heartbeatTimer = null
+		this.pollTimer = null
+
+		for (const timer of [this.retryTimer, this.launchTimer] as const) {
+			if (timer) {
+				clearTimeout(timer)
+			}
 		}
-		if (this.retryTimer) {
-			clearTimeout(this.retryTimer)
-			this.retryTimer = null
-		}
+		this.retryTimer = null
+		this.launchTimer = null
+		this.retryKind = null
+
 		try {
 			this.client?.close()
 		} catch {
 			// Closing an already dead socket is not worth reporting.
 		}
 		this.client = null
+		this.receiver = null
 		this.media = null
 		this.transportId = null
 		this.sessionId = null

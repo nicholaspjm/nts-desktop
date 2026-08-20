@@ -5,7 +5,13 @@ import "./global.css"
 import { hlsStreams, streams } from "~/lib/stream"
 
 import { electron } from "./electron"
-import { startCast, stopCast, useCastDevices, useCastState } from "./lib/cast"
+import {
+	setCastVolume,
+	startCast,
+	stopCast,
+	useCastDevices,
+	useCastState,
+} from "./lib/cast"
 import {
 	useHistory,
 	useMediaKeys,
@@ -315,6 +321,7 @@ export function NTS() {
 	const {
 		devices: castDevices,
 		discover: discoverCast,
+		idle: idleCast,
 		rescan: rescanCast,
 	} = useCastDevices()
 	const castState = useCastState()
@@ -323,13 +330,18 @@ export function NTS() {
 	// a speaker in another room would be a surprise, and remembering the choice
 	// would also mean running device discovery at every launch.
 	const [castTarget, setCastTarget] = useState<string | null>(null)
-	const casting = castTarget !== null
+
+	// "Armed" is a device having been chosen; "casting" is a device actually
+	// holding the stream. They are not the same, and conflating them made every
+	// indicator claim a cast was happening when nothing had been handed over.
+	const armed = castTarget !== null
+	const casting = armed && castState.device !== null
 
 	// While a device is playing, the local element is idle by design, so its
 	// status would read "idle" and look broken. The device's own state is the
 	// truthful answer to "is this playing", and it maps onto the same vocabulary
 	// the status dot and label already speak.
-	const displayStatus: PlayerStatus = casting
+	const displayStatus: PlayerStatus = armed
 		? castState.status === "buffering"
 			? "connecting"
 			: castState.status
@@ -347,6 +359,19 @@ export function NTS() {
 	const handleStopCast = useCallback(function () {
 		setCastTarget(null)
 	}, [])
+
+	// The local element is not in the audio path while casting, so its volume is
+	// meaningless. Without this the slider moves, the mute button lights up, and
+	// the speaker in the other room carries on regardless.
+	useEffect(
+		function () {
+			if (!armed) {
+				return
+			}
+			setCastVolume(muted ? 0 : preferences.volume, muted)
+		},
+		[armed, muted, preferences.volume],
+	)
 
 	const setMixtapeFormat = useCallback(
 		function (mixtapeFormat: "mp3" | "aac") {
@@ -385,7 +410,11 @@ export function NTS() {
 	const streamInfo = useStreamInfo(probeSrc)
 	const outputSampleRate = useOutputSampleRate(preferences.outputDevice)
 	// Only a genuine reconnect counts. The first connect is not a recovery.
-	const health = useStreamHealth(audioEl, Boolean(active), status === "reconnecting")
+	const health = useStreamHealth(
+		audioEl,
+		Boolean(active) && !armed,
+		status === "reconnecting",
+	)
 
 	const now = useMemo(
 		function (): NowPlaying {
@@ -465,7 +494,10 @@ export function NTS() {
 				image: meta.image,
 			}).then(function (result) {
 				if (!result.started) {
+					// Falling back to local playback beats sitting in silence while
+					// every indicator insists a device has it.
 					console.warn("could not cast:", result.reason)
+					setCastTarget(null)
 				}
 			})
 
@@ -562,9 +594,12 @@ export function NTS() {
 					onOutputDevice={setOutputDevice}
 					castDevices={castDevices}
 					castTarget={castTarget}
+					castingNow={casting}
+					canCast={src !== null}
 					castStatus={castState.status}
 					castError={castState.error}
 					onOpenCast={handleOpenCast}
+					onCloseCast={idleCast}
 					onCast={setCastTarget}
 					onStopCast={handleStopCast}
 					onRescanCast={rescanCast}
@@ -599,6 +634,7 @@ export function NTS() {
 					onSleep={sleep.set}
 					onCancelSleep={sleep.cancel}
 					outputSampleRate={outputSampleRate}
+					casting={armed}
 					status={displayStatus}
 					playing={Boolean(active)}
 					volume={preferences.volume}
@@ -612,8 +648,8 @@ export function NTS() {
 			) : null}
 
 			<Player
-				src={casting ? null : src}
-				playing={Boolean(active) && !casting}
+				src={armed ? null : src}
+				playing={Boolean(active) && !armed}
 				onPlay={() => {}}
 				onStop={() => {}}
 				onStatus={setStatus}

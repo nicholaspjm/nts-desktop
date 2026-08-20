@@ -59,6 +59,7 @@ export function castDeviceId(outputDevice: string): string | null {
 export function useCastDevices(): {
 	devices: CastDevice[]
 	discover: () => void
+	idle: () => void
 	rescan: () => void
 } {
 	const [devices, setDevices] = useState<CastDevice[]>([])
@@ -98,7 +99,13 @@ export function useCastDevices(): {
 		electron.send("cast-rescan")
 	}, [])
 
-	return { devices, discover, rescan }
+	// Called when the picker closes. The main process keeps browsing while a
+	// session is live, so this cannot cut the ground from under an active cast.
+	const idle = useCallback(function () {
+		electron.send("cast-discover-stop")
+	}, [])
+
+	return { devices, discover, idle, rescan }
 }
 
 /** What the device is currently doing, as reported by the main process. */
@@ -127,4 +134,9 @@ export async function startCast(
 
 export function stopCast(): void {
 	electron.send("cast-stop")
+}
+
+/** Volume on the device, since the local element is not in the path. */
+export function setCastVolume(level: number, muted: boolean): void {
+	electron.send("cast-volume", level, muted)
 }

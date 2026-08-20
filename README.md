@@ -122,10 +122,17 @@ seconds, so a stutter has to last a long time to be audible. Both are the same
 - Archive search and playback, including pasting an `nts.live` show link
 - Show detail before you play, listening history, and Open on NTS
 - Media keys, a sleep timer that fades out, and output device selection
-- Chromecast, listed alongside your sound cards in the same output picker. The
-  device fetches the stream itself rather than being fed audio from here, so
-  nothing is re-encoded and playback carries on once the laptop is shut. The app
-  keeps watching it and reloads the stream if the device stalls
+- Chromecast, from its own button in the bottom bar. The device fetches the
+  stream itself rather than being fed audio from here, so nothing is re-encoded
+  and playback carries on once the laptop is shut. Volume and mute are sent to
+  the device, and the app keeps watching it and reloads the stream if it stalls.
+  Archive shows cannot be cast: they play through embedded players rather than
+  the stream, so there is nothing to hand over
+
+  Devices are looked for only when that button is opened, never at launch. The
+  first time you open it, Windows will ask whether to allow the app through the
+  firewall, because finding devices means listening on the local network. Say
+  yes or no devices will appear
 
 **Stream diagnostics**
 

@@ -785,6 +785,9 @@ type PanelProps = {
 	onSleep: (minutes: number) => void
 	onCancelSleep: () => void
 	outputSampleRate: number | null
+	// While a device holds the stream nothing is decoded here, so any statement
+	// about the local output would describe a path the audio is not taking.
+	casting: boolean
 }
 
 function HealthGraph(props: { health: StreamHealth; height: number }) {
@@ -934,6 +937,7 @@ export function StreamPanel(props: PanelProps) {
 		onSleep,
 		onCancelSleep,
 		outputSampleRate,
+		casting,
 	} = props
 
 	const measured = probe?.measured ?? null
@@ -951,7 +955,7 @@ export function StreamPanel(props: PanelProps) {
 	// OS before it is heard. Only worth stating when both numbers are known.
 	const streamRate = measured?.sampleRate ?? null
 	const resampling =
-		streamRate && outputSampleRate
+		!casting && streamRate && outputSampleRate
 			? {
 					mismatched: Math.abs(streamRate - outputSampleRate) > 1,
 					label:
@@ -1164,6 +1168,9 @@ type FullProps = {
 	onSleep: (minutes: number) => void
 	onCancelSleep: () => void
 	outputSampleRate: number | null
+	// While a device holds the stream nothing is decoded here, so any statement
+	// about the local output would describe a path the audio is not taking.
+	casting: boolean
 	status: PlayerStatus
 	playing: boolean
 	volume: number
@@ -1194,6 +1201,7 @@ export function FullScreen(props: FullProps) {
 		onSleep,
 		onCancelSleep,
 		outputSampleRate,
+		casting,
 		status,
 		playing,
 		volume,
@@ -1318,6 +1326,7 @@ export function FullScreen(props: FullProps) {
 						onSleep={onSleep}
 						onCancelSleep={onCancelSleep}
 						outputSampleRate={outputSampleRate}
+						casting={casting}
 					/>
 				</div>
 			</div>
@@ -1340,9 +1349,12 @@ type BarProps = {
 	onOutputDevice: (id: string) => void
 	castDevices: CastDevice[]
 	castTarget: string | null
+	castingNow: boolean
+	canCast: boolean
 	castStatus: CastStatus
 	castError?: string
 	onOpenCast: () => void
+	onCloseCast: () => void
 	onCast: (deviceId: string) => void
 	onStopCast: () => void
 	onRescanCast: () => void
@@ -1355,12 +1367,28 @@ type BarProps = {
 type CastButtonProps = {
 	devices: CastDevice[]
 	target: string | null
+	// A device is holding the stream, as opposed to merely being selected.
+	casting: boolean
+	// Whether there is anything a device could actually be given. Archive shows
+	// play through embedded players rather than the stream, so they cannot go to
+	// a Cast device at all.
+	canCast: boolean
 	status: CastStatus
 	error?: string
 	onOpen: () => void
+	onClose: () => void
 	onSelect: (deviceId: string) => void
 	onStop: () => void
 	onRescan: () => void
+}
+
+const CAST_NOTE: Record<CastStatus, string> = {
+	idle: "",
+	connecting: "Connecting to the device",
+	buffering: "Connecting to the device",
+	playing: "Playing on the device",
+	reconnecting: "Lost the device, trying again",
+	failed: "The device would not play this",
 }
 
 /**
@@ -1372,8 +1400,19 @@ type CastButtonProps = {
  * than a line buried in a dropdown.
  */
 export function CastButton(props: CastButtonProps) {
-	const { devices, target, status, error, onOpen, onSelect, onStop, onRescan } =
-		props
+	const {
+		devices,
+		target,
+		casting,
+		canCast,
+		status,
+		error,
+		onOpen,
+		onClose,
+		onSelect,
+		onStop,
+		onRescan,
+	} = props
 	const [open, setOpen] = useState(false)
 	const wrap = useRef<HTMLDivElement | null>(null)
 
@@ -1408,14 +1447,17 @@ export function CastButton(props: CastButtonProps) {
 	function toggle() {
 		// Only on the way open. Browsing the network is what makes Windows ask
 		// about the firewall, so it waits for someone to actually want it.
-		if (!open) {
+		if (open) {
+			onClose()
+		} else {
 			onOpen()
 		}
 		setOpen((x) => !x)
 	}
 
-	const casting = target !== null
+	const armed = target !== null
 	const active = devices.find((d) => d.id === target)
+	const note = casting || status === "failed" ? CAST_NOTE[status] : ""
 
 	return (
 		<div className={css.castWrap} ref={wrap}>
@@ -1423,8 +1465,16 @@ export function CastButton(props: CastButtonProps) {
 				type="button"
 				className={classnames(css.iconButton, { [css.castOn]: casting })}
 				onClick={toggle}
+				aria-haspopup="menu"
+				aria-expanded={open}
 				aria-label={casting ? "Casting, change device" : "Cast to a device"}
-				title={active ? `Casting to ${active.name}` : "Cast to a device"}
+				title={
+					casting && active
+						? `Casting to ${active.name}`
+						: armed
+							? "Waiting for something to play"
+							: "Cast to a device"
+				}
 			>
 				<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
 					<path
@@ -1435,7 +1485,7 @@ export function CastButton(props: CastButtonProps) {
 			</button>
 
 			{open ? (
-				<div className={css.castMenu}>
+				<div className={css.castMenu} role="menu">
 					{devices.length === 0 ? (
 						<div className={css.castNote}>Looking for devices...</div>
 					) : (
@@ -1444,8 +1494,10 @@ export function CastButton(props: CastButtonProps) {
 								<button
 									key={device.id}
 									type="button"
+									role="menuitem"
+									disabled={!canCast}
 									className={classnames(css.menuItem, {
-										[css.castItemOn]: device.id === target,
+										[css.castItemOn]: device.id === target && casting,
 									})}
 									onClick={() => {
 										onSelect(device.id)
@@ -1458,18 +1510,27 @@ export function CastButton(props: CastButtonProps) {
 						})
 					)}
 
-					{casting ? (
+					{/* Archive shows come from embedded players rather than the stream,
+					    so there is nothing to hand over. Saying so beats a menu that
+					    looks live and does nothing. */}
+					{!canCast && devices.length > 0 ? (
 						<div className={css.castNote}>
-							{status === "playing"
-								? "Playing on the device"
-								: status === "failed"
-									? (error ?? "The device would not play this")
-									: `${status}...`}
+							Pick a channel or mixtape first. Archive shows cannot be cast.
 						</div>
 					) : null}
 
+					{note ? (
+						<div className={css.castNote}>
+							{status === "failed" ? (error ?? note) : note}
+						</div>
+					) : null}
+
+					{armed && !casting && canCast ? (
+						<div className={css.castNote}>Handing over the stream...</div>
+					) : null}
+
 					<div className={css.castMenuFoot}>
-						{casting ? (
+						{armed ? (
 							<button
 								type="button"
 								className={css.menuItem}
@@ -1507,9 +1568,12 @@ export function NowPlayingBar(props: BarProps) {
 		onOutputDevice,
 		castDevices,
 		castTarget,
+		castingNow,
+		canCast,
 		castStatus,
 		castError,
 		onOpenCast,
+		onCloseCast,
 		onCast,
 		onStopCast,
 		onRescanCast,
@@ -1568,6 +1632,9 @@ export function NowPlayingBar(props: BarProps) {
 			<CastButton
 				devices={castDevices}
 				target={castTarget}
+				casting={castingNow}
+				canCast={canCast}
+				onClose={onCloseCast}
 				status={castStatus}
 				error={castError}
 				onOpen={onOpenCast}

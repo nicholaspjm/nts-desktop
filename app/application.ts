@@ -149,6 +149,24 @@ export class NTSApplication {
 
 		ipcMain.on("cast-stop", () => this.stopCast())
 
+		// The local element is not in the audio path while casting, so the app's
+		// own volume control has to reach the device or it silently does nothing.
+		ipcMain.on(
+			"cast-volume",
+			(_evt: IpcMainEvent, level: number, muted: boolean) => {
+				this.castSession?.setVolume(level, muted)
+			},
+		)
+
+		// Releases the multicast socket when the picker closes. Holding it open
+		// for the rest of the session was the thing making discovery on-demand
+		// was supposed to avoid.
+		ipcMain.on("cast-discover-stop", () => {
+			if (!this.castSession) {
+				this.castDiscovery.stop()
+			}
+		})
+
 		// Search results and the paste box both land here. openURL already
 		// validates that it is an nts.live show URL.
 		ipcMain.on("open-url", (_evt: IpcMainEvent, url: string) => this.openURL(url))

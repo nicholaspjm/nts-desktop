@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
+// How long a saved device must stay absent before the choice is abandoned.
+// Windows in particular drops and re-adds devices on sleep, dock changes and
+// driver restarts, and forgetting the choice on the first blink would be worse
+// than the bug this reconciliation exists to fix.
+const FORGET_AFTER = 10_000
+
 export type AudioOutput = {
 	id: string
 	label: string
@@ -76,17 +82,44 @@ export function useReconcileOutput(
 	deviceId: string,
 	onReset: () => void,
 ): void {
+	const missingSince = useRef<number | null>(null)
+
 	useEffect(
 		function () {
 			// An empty list means enumeration has not happened yet or just failed.
 			// Neither is evidence that the saved device is gone, and clearing the
 			// preference on a false alarm would lose a deliberate choice.
 			if (deviceId === "" || outputs.length === 0) {
+				missingSince.current = null
 				return
 			}
 
-			if (!outputs.some((o) => o.id === deviceId)) {
+			if (outputs.some((o) => o.id === deviceId)) {
+				missingSince.current = null
+				return
+			}
+
+			// Unplugged is not the same as gone for good, and someone moving desks
+			// should not have to reselect their interface when they plug back in.
+			// A device has to stay missing before the choice is given up.
+			if (missingSince.current === null) {
+				missingSince.current = Date.now()
+			}
+
+			const elapsed = Date.now() - missingSince.current
+			if (elapsed >= FORGET_AFTER) {
+				missingSince.current = null
 				onReset()
+				return
+			}
+
+			const timer = setTimeout(function () {
+				missingSince.current = null
+				onReset()
+			}, FORGET_AFTER - elapsed)
+
+			return function () {
+				clearTimeout(timer)
 			}
 		},
 		[outputs, deviceId, onReset],
