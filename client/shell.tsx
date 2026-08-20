@@ -758,6 +758,7 @@ type PanelProps = {
 	outputs: AudioOutput[]
 	outputDevice: string
 	onOutputDevice: (id: string) => void
+	onRefreshOutputs: () => void
 	mixtapeFormat: "mp3" | "aac"
 	onMixtapeFormat: (format: "mp3" | "aac") => void
 	canChooseFormat: boolean
@@ -906,6 +907,7 @@ export function StreamPanel(props: PanelProps) {
 		outputs,
 		outputDevice,
 		onOutputDevice,
+		onRefreshOutputs,
 		mixtapeFormat,
 		onMixtapeFormat,
 		canChooseFormat,
@@ -1054,25 +1056,35 @@ export function StreamPanel(props: PanelProps) {
 				</label>
 			) : null}
 
-			{outputs.length > 0 ? (
-				<label className={css.output}>
-					<span className={css.compareLabel}>Output</span>
-					<select
-						className={css.select}
-						value={outputDevice}
-						onChange={(e) => onOutputDevice(e.target.value)}
-					>
-						<option value="">System default</option>
-						{outputs
-							.filter((o) => o.id !== "default")
-							.map((o) => (
-								<option key={o.id} value={o.id}>
-									{o.label}
-								</option>
-							))}
-					</select>
-				</label>
-			) : null}
+			{/* Deliberately not gated on a non-empty list: an empty list is exactly
+			    when someone wants to press refresh, and hiding the control then
+			    would be the opposite of useful. "System default" is always valid. */}
+			<label className={css.output}>
+				<span className={css.compareLabel}>Output</span>
+				<select
+					className={css.select}
+					value={outputDevice}
+					onChange={(e) => onOutputDevice(e.target.value)}
+				>
+					<option value="">System default</option>
+					{outputs
+						.filter((o) => o.id !== "default")
+						.map((o) => (
+							<option key={o.id} value={o.id}>
+								{o.label}
+							</option>
+						))}
+				</select>
+				<button
+					type="button"
+					className={css.refreshButton}
+					onClick={onRefreshOutputs}
+					title="Look for audio devices again"
+					aria-label="Refresh audio device list"
+				>
+					Refresh
+				</button>
+			</label>
 
 			{detailed ? (
 				<>
@@ -1132,6 +1144,7 @@ type FullProps = {
 	outputs: AudioOutput[]
 	outputDevice: string
 	onOutputDevice: (id: string) => void
+	onRefreshOutputs: () => void
 	mixtapeFormat: "mp3" | "aac"
 	onMixtapeFormat: (format: "mp3" | "aac") => void
 	canChooseFormat: boolean
@@ -1161,6 +1174,7 @@ export function FullScreen(props: FullProps) {
 		outputs,
 		outputDevice,
 		onOutputDevice,
+		onRefreshOutputs,
 		mixtapeFormat,
 		onMixtapeFormat,
 		canChooseFormat,
@@ -1284,6 +1298,7 @@ export function FullScreen(props: FullProps) {
 						outputs={outputs}
 						outputDevice={outputDevice}
 						onOutputDevice={onOutputDevice}
+						onRefreshOutputs={onRefreshOutputs}
 						mixtapeFormat={mixtapeFormat}
 						onMixtapeFormat={onMixtapeFormat}
 						canChooseFormat={canChooseFormat}

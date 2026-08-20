@@ -645,6 +645,27 @@
 	gap: 10px;
 }
 
+/* Manual backstop for the device list. devicechange already refreshes it, but
+   that event is not dependable for output-only changes on every platform. */
+.refreshButton {
+	appearance: none;
+	flex: none;
+	background: none;
+	border: 1px solid var(--nts-line);
+	color: var(--nts-text-muted);
+	font: inherit;
+	font-size: 11px;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	padding: 5px 10px;
+	cursor: pointer;
+}
+
+.refreshButton:hover {
+	color: var(--nts-text);
+	border-color: var(--nts-line-strong);
+}
+
 .select {
 	flex: 1;
 	min-width: 0;

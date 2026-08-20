@@ -13,7 +13,7 @@ import {
 } from "./lib/controls"
 import { useLiveInfo } from "./lib/live"
 import { useMixtapes } from "./lib/mixtapes"
-import { useAudioOutput, useAudioOutputs } from "./lib/outputs"
+import { useAudioOutput, useAudioOutputs, useReconcileOutput } from "./lib/outputs"
 import { usePreferences } from "./lib/preferences"
 import { type SortOrder, useSearch } from "./lib/search"
 import {
@@ -299,8 +299,16 @@ export function NTS() {
 	}, [])
 
 	const search = useSearch(query)
-	const outputs = useAudioOutputs()
+	const { outputs, refresh: refreshOutputs } = useAudioOutputs()
 	useAudioOutput(audioEl, preferences.outputDevice)
+
+	const forgetOutputDevice = useCallback(
+		function () {
+			updatePreferences((prefs) => ({ ...prefs, outputDevice: "" }))
+		},
+		[updatePreferences],
+	)
+	useReconcileOutput(outputs, preferences.outputDevice, forgetOutputDevice)
 
 	const setMixtapeFormat = useCallback(
 		function (mixtapeFormat: "mp3" | "aac") {
@@ -495,6 +503,7 @@ export function NTS() {
 					outputs={outputs}
 					outputDevice={preferences.outputDevice}
 					onOutputDevice={setOutputDevice}
+					onRefreshOutputs={refreshOutputs}
 					mixtapeFormat={preferences.mixtapeFormat}
 					onMixtapeFormat={setMixtapeFormat}
 					canChooseFormat={Boolean(mixtape?.streamAac)}
