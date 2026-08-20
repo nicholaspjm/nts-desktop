@@ -64,6 +64,24 @@ import { Splash } from "./splash"
 
 import css from "./shell.module.css"
 
+/**
+ * The plain MP3 equivalent of a live HLS URL.
+ *
+ * Handed to a Cast device as a second chance: if a receiver refuses HLS with
+ * MP3 segments, an ordinary MP3 stream over HTTP is the most universally
+ * supported thing it can be given, so the refusal need not be a dead end.
+ */
+function directFallback(
+	url: string,
+): { url: string; contentType: string } | undefined {
+	for (const id of [1, 2] as const) {
+		if (url === hlsStreams[id]) {
+			return { url: streams[id], contentType: "audio/mpeg" }
+		}
+	}
+	return undefined
+}
+
 export function App() {
 	return (
 		<>
@@ -489,6 +507,7 @@ export function NTS() {
 				// NTS delivers HLS as MP3 segments, where a receiver would otherwise
 				// assume AAC and refuse them.
 				...(isHls ? { hlsSegmentFormat: "mp3" as const } : {}),
+				...(isHls ? { fallback: directFallback(src) } : {}),
 				title: meta.title,
 				subtitle: meta.subtitle,
 				image: meta.image,

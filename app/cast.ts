@@ -43,6 +43,13 @@ const STALL_TIMEOUT = 20_000
 // "connecting" forever with nothing to show for it.
 const LAUNCH_TIMEOUT = 15_000
 
+// Long enough for a STOP to leave the socket before it is closed underneath it.
+const STOP_FLUSH = 400
+
+// An unreachable device otherwise sits in "connecting" for as long as the OS
+// takes to give up on the TCP connection, which reads as a hang.
+const CONNECT_TIMEOUT = 10_000
+
 const BACKOFF_MIN = 2_000
 const BACKOFF_MAX = 60_000
 
@@ -60,8 +67,14 @@ export type CastMedia = {
 	subtitle?: string
 	image?: string
 	// HLS carrying MP3 segments rather than the more usual AAC. The receiver
-	// cannot always infer this, so it is stated.
+	// cannot always infer this, so it is stated. Lowercase is deliberate: the
+	// receiver maps this with an exact-match switch and any other casing falls
+	// through to a Transport Stream parse that will fail.
 	hlsSegmentFormat?: "mp3" | "aac"
+	// Tried if the device refuses the first choice. Plain MP3 over HTTP is the
+	// most universally supported thing a Cast device can be handed, so a rejected
+	// HLS stream need not be a dead end.
+	fallback?: { url: string; contentType: string }
 }
 
 export type CastStatus =
@@ -174,6 +187,7 @@ export class CastSession {
 	private pollTimer: ReturnType<typeof setInterval> | null = null
 	private retryTimer: ReturnType<typeof setTimeout> | null = null
 	private launchTimer: ReturnType<typeof setTimeout> | null = null
+	private connectTimer: ReturnType<typeof setTimeout> | null = null
 	private retryKind: RetryKind | null = null
 
 	private receiver: CastChannel | null = null
@@ -182,8 +196,15 @@ export class CastSession {
 	private sessionId: string | null = null
 	private requestId = 1
 
+	private mediaSessionId: number | null = null
 	private lastPosition = -1
 	private progressedAt = 0
+	// The stall watchdog stays disarmed until the device has been seen to advance
+	// its position at least once. If a receiver reports no useful position for a
+	// live stream, a watchdog that trusted it would reload every twenty seconds
+	// forever, which is far worse than not watching at all.
+	private positionSeen = false
+	private usingFallback = false
 	private attempts = 0
 	private closed = false
 	// Set when the device has refused the stream outright. Retrying that only
@@ -277,11 +298,31 @@ export class CastSession {
 			this.handleTransportLoss("the device closed the connection")
 		})
 
+		// The OS can spend a minute deciding a host is unreachable, and until it
+		// does there is no feedback at all.
+		this.connectTimer = setTimeout(() => {
+			this.connectTimer = null
+			if (!this.closed && !this.receiver) {
+				this.handleTransportLoss("could not reach the device")
+			}
+		}, CONNECT_TIMEOUT)
+
 		client.connect({ host: this.device.host, port: this.device.port }, () => {
+			if (this.connectTimer) {
+				clearTimeout(this.connectTimer)
+				this.connectTimer = null
+			}
+
 			const connection = this.channel("receiver-0", NS_CONNECTION)
 			const heartbeat = this.channel("receiver-0", NS_HEARTBEAT)
 			const receiver = this.channel("receiver-0", NS_RECEIVER)
 			this.receiver = receiver
+
+			connection.on("message", (data) => {
+				if (data?.type === "CLOSE") {
+					this.handleTransportLoss("the device ended the session")
+				}
+			})
 
 			connection.send({ type: "CONNECT" })
 
@@ -381,6 +422,16 @@ export class CastSession {
 		this.sessionId = sessionId
 
 		const connection = this.channel(transportId, NS_CONNECTION)
+		// Someone else casting to the same speaker closes this connection rather
+		// than the socket. Treated as a stall it would never recover, because a
+		// reload cannot reach a receiver that has stopped listening; it needs a
+		// fresh launch.
+		connection.on("message", (data) => {
+			if (data?.type === "CLOSE") {
+				this.transportId = null
+				this.handleTransportLoss("another sender took over the device")
+			}
+		})
 		connection.send({ type: "CONNECT" })
 
 		const media = this.channel(transportId, NS_MEDIA)
@@ -407,7 +458,9 @@ export class CastSession {
 			requestId: this.nextId(),
 			sessionId: this.sessionId,
 			autoplay: true,
-			currentTime: 0,
+			// Deliberately no currentTime. On a LIVE stream asking for position 0
+			// cancels the jump to the live edge, so the device either starts a full
+			// window behind or asks for a segment that has already rolled off.
 			media: {
 				contentId: this.content.url,
 				contentType: this.content.contentType,
@@ -451,7 +504,30 @@ export class CastSession {
 
 	private handleStatus(data: Record<string, unknown>): void {
 		if (data?.type === "LOAD_FAILED" || data?.type === "LOAD_CANCELLED") {
-			this.reportFatal("the device would not play this stream")
+			// The code says which kind of refusal it was, and without it a report of
+			// "casting is broken" is unactionable.
+			const detail =
+				typeof data.detailedErrorCode === "number"
+					? ` (error ${data.detailedErrorCode})`
+					: ""
+
+			// Plain MP3 over HTTP is the most universally supported thing a Cast
+			// device takes, so a refused HLS stream is worth one retry as that
+			// before calling it dead.
+			if (this.content.fallback && !this.usingFallback) {
+				this.usingFallback = true
+				this.content = {
+					...this.content,
+					url: this.content.fallback.url,
+					contentType: this.content.fallback.contentType,
+					hlsSegmentFormat: undefined,
+				}
+				this.report("connecting", `retrying as a plain stream${detail}`)
+				this.reload()
+				return
+			}
+
+			this.reportFatal(`the device would not play this stream${detail}`)
 			return
 		}
 
@@ -464,8 +540,17 @@ export class CastSession {
 			return
 		}
 
+		if (typeof status.mediaSessionId === "number") {
+			this.mediaSessionId = status.mediaSessionId
+		}
+
 		const position = status.currentTime
 		if (typeof position === "number" && position !== this.lastPosition) {
+			if (this.lastPosition !== -1) {
+				// Two different readings: the device really is reporting progress, so
+				// the stall watchdog can be trusted from here.
+				this.positionSeen = true
+			}
 			this.lastPosition = position
 			this.progressedAt = Date.now()
 			this.attempts = 0
@@ -500,6 +585,12 @@ export class CastSession {
 	 */
 	private checkForStall(): void {
 		if (this.closed || this.failed || this.progressedAt === 0) {
+			return
+		}
+		// Never fires against a device that simply does not report position for
+		// live content. Reloading on that would cut the audio every twenty
+		// seconds, for ever, in the name of protecting it.
+		if (!this.positionSeen) {
 			return
 		}
 		if (Date.now() - this.progressedAt > STALL_TIMEOUT) {
@@ -547,20 +638,56 @@ export class CastSession {
 		}, wait)
 	}
 
-	/** Tells the device to stop, then disconnects. */
+	/**
+	 * Stops the device and disconnects.
+	 *
+	 * Stopping the receiver application rather than the media is deliberate: it
+	 * needs only the session id, which is known from the launch, whereas a media
+	 * STOP is rejected without a mediaSessionId the device may never have sent.
+	 * The socket is closed a moment later so the write actually leaves; tearing
+	 * it down in the same tick threw the message away and left the speaker
+	 * playing with nothing left to control it.
+	 */
 	stop(): void {
-		this.closed = true
+		const sessionId = this.sessionId
+		const media = this.media
+		const receiver = this.receiver
+		const mediaSessionId = this.mediaSessionId
+
 		try {
-			this.media?.send({ type: "STOP", requestId: this.nextId() })
+			if (media && mediaSessionId !== null) {
+				media.send({ type: "STOP", requestId: this.nextId(), mediaSessionId })
+			}
+			if (receiver && sessionId) {
+				receiver.send({ type: "STOP", requestId: this.nextId(), sessionId })
+			}
 		} catch {
-			// Already gone.
+			// Already gone; the teardown below is what matters.
 		}
-		this.teardown()
+
+		this.closed = true
 		this.state = { status: "idle", device: null }
 		this.onState(this.state)
+
+		const client = this.client
+		this.clearTimers()
+		this.client = null
+		this.receiver = null
+		this.media = null
+		this.transportId = null
+		this.sessionId = null
+		this.mediaSessionId = null
+
+		setTimeout(function () {
+			try {
+				client?.close()
+			} catch {
+				// Nothing left to close.
+			}
+		}, STOP_FLUSH)
 	}
 
-	private teardown(): void {
+	private clearTimers(): void {
 		for (const timer of [this.heartbeatTimer, this.pollTimer] as const) {
 			if (timer) {
 				clearInterval(timer)
@@ -569,14 +696,23 @@ export class CastSession {
 		this.heartbeatTimer = null
 		this.pollTimer = null
 
-		for (const timer of [this.retryTimer, this.launchTimer] as const) {
+		for (const timer of [
+			this.retryTimer,
+			this.launchTimer,
+			this.connectTimer,
+		] as const) {
 			if (timer) {
 				clearTimeout(timer)
 			}
 		}
 		this.retryTimer = null
 		this.launchTimer = null
+		this.connectTimer = null
 		this.retryKind = null
+	}
+
+	private teardown(): void {
+		this.clearTimers()
 
 		try {
 			this.client?.close()
@@ -588,5 +724,6 @@ export class CastSession {
 		this.media = null
 		this.transportId = null
 		this.sessionId = null
+		this.mediaSessionId = null
 	}
 }
