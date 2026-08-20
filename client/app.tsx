@@ -5,14 +5,7 @@ import "./global.css"
 import { hlsStreams, streams } from "~/lib/stream"
 
 import { electron } from "./electron"
-import {
-	castDeviceId,
-	castTargetId,
-	startCast,
-	stopCast,
-	useCastDevices,
-	useCastState,
-} from "./lib/cast"
+import { startCast, stopCast, useCastDevices, useCastState } from "./lib/cast"
 import {
 	useHistory,
 	useMediaKeys,
@@ -309,21 +302,7 @@ export function NTS() {
 	const search = useSearch(query)
 	const { outputs, refresh: refreshOutputs } = useAudioOutputs()
 
-	// Cast targets live in the same picker as sound cards, so a selection is
-	// either a local sink or a device on the network, never both.
-	const {
-		devices: castDevices,
-		discover: discoverCast,
-		rescan: rescanCast,
-	} = useCastDevices()
-	const castState = useCastState()
-	const castTarget = castDeviceId(preferences.outputDevice)
-	const casting = castTarget !== null
-
-	// A cast id is not a sink id. Handing it to setSinkId would reject on every
-	// render and log a warning for something that is working as intended.
-	const localOutput = casting ? "" : preferences.outputDevice
-	useAudioOutput(audioEl, localOutput)
+	useAudioOutput(audioEl, preferences.outputDevice)
 
 	const forgetOutputDevice = useCallback(
 		function () {
@@ -331,14 +310,20 @@ export function NTS() {
 		},
 		[updatePreferences],
 	)
+	useReconcileOutput(outputs, preferences.outputDevice, forgetOutputDevice)
 
-	// Skipped while casting: a device that has not answered mDNS yet is not a
-	// device that is gone, and clearing the choice on that would be wrong.
-	useReconcileOutput(
-		outputs,
-		casting ? "" : preferences.outputDevice,
-		forgetOutputDevice,
-	)
+	const {
+		devices: castDevices,
+		discover: discoverCast,
+		rescan: rescanCast,
+	} = useCastDevices()
+	const castState = useCastState()
+
+	// Deliberately not persisted. Reopening the app and having it silently seize
+	// a speaker in another room would be a surprise, and remembering the choice
+	// would also mean running device discovery at every launch.
+	const [castTarget, setCastTarget] = useState<string | null>(null)
+	const casting = castTarget !== null
 
 	// While a device is playing, the local element is idle by design, so its
 	// status would read "idle" and look broken. The device's own state is the
@@ -350,39 +335,18 @@ export function NTS() {
 			: castState.status
 		: status
 
-	// One list for the picker. Local sinks and network devices are different
-	// animals, but from the listener's side both answer "where does this come
-	// out", so making them one choice keeps that honest.
-	const outputChoices = useMemo(
-		function () {
-			return [
-				...outputs.filter((o) => o.id !== "default"),
-				...castDevices.map((d) => ({
-					id: castTargetId(d.id),
-					label: d.name,
-					cast: true,
-				})),
-			]
-		},
-		[outputs, castDevices],
-	)
-
-	// Opening the picker is the moment someone might want a Cast device, and the
-	// first point at which paying the firewall cost is justified.
-	const handleOpenOutputs = useCallback(
+	// Opening the cast menu is the first point at which browsing the network is
+	// justified, since that is when someone is actually looking for a device.
+	const handleOpenCast = useCallback(
 		function () {
 			discoverCast()
 		},
 		[discoverCast],
 	)
 
-	const refreshAllOutputs = useCallback(
-		function () {
-			refreshOutputs()
-			rescanCast()
-		},
-		[refreshOutputs, rescanCast],
-	)
+	const handleStopCast = useCallback(function () {
+		setCastTarget(null)
+	}, [])
 
 	const setMixtapeFormat = useCallback(
 		function (mixtapeFormat: "mp3" | "aac") {
@@ -419,7 +383,7 @@ export function NTS() {
 		[active, src],
 	)
 	const streamInfo = useStreamInfo(probeSrc)
-	const outputSampleRate = useOutputSampleRate(localOutput)
+	const outputSampleRate = useOutputSampleRate(preferences.outputDevice)
 	// Only a genuine reconnect counts. The first connect is not a recovery.
 	const health = useStreamHealth(audioEl, Boolean(active), status === "reconnecting")
 
@@ -593,10 +557,17 @@ export function NTS() {
 					source={active}
 					onChannel={toggleChannel}
 					health={health}
-					outputs={outputChoices}
+					outputs={outputs}
 					outputDevice={preferences.outputDevice}
 					onOutputDevice={setOutputDevice}
-					onOpenOutputs={handleOpenOutputs}
+					castDevices={castDevices}
+					castTarget={castTarget}
+					castStatus={castState.status}
+					castError={castState.error}
+					onOpenCast={handleOpenCast}
+					onCast={setCastTarget}
+					onStopCast={handleStopCast}
+					onRescanCast={rescanCast}
 					onToggle={toggle}
 					onVolume={(v) => {
 						setMuted(false)
@@ -615,11 +586,10 @@ export function NTS() {
 					health={health}
 					detailed={detailedStream}
 					onDetailed={setDetailedStream}
-					outputs={outputChoices}
+					outputs={outputs}
 					outputDevice={preferences.outputDevice}
 					onOutputDevice={setOutputDevice}
-					onRefreshOutputs={refreshAllOutputs}
-					onOpenOutputs={handleOpenOutputs}
+					onRefreshOutputs={refreshOutputs}
 					mixtapeFormat={preferences.mixtapeFormat}
 					onMixtapeFormat={setMixtapeFormat}
 					canChooseFormat={Boolean(mixtape?.streamAac)}

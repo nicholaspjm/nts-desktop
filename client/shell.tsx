@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import logo from "../logos/nts.svg"
 
 import type { ShowInfo as ArchiveShow } from "../app/show"
+import type { CastDevice, CastStatus } from "./lib/cast"
 import type { HistoryEntry, UpdateState } from "./lib/controls"
 import type { ChannelInfo, Info, ShowInfo } from "./lib/live"
 import type { Mixtape } from "./lib/mixtapes"
@@ -735,34 +736,18 @@ const STATUS_LABEL: Record<PlayerStatus, string> = {
 	failed: "Stream unavailable",
 }
 
-/**
- * The contents of an output picker.
- *
- * Cast devices are grouped apart from sound cards because choosing one does
- * something categorically different: the stream stops coming out of this
- * machine and the device fetches it directly instead.
- */
+/** The contents of an output picker, shared so the two cannot drift apart. */
 function OutputOptions(props: { outputs: AudioOutput[] }) {
-	const local = props.outputs.filter((o) => !o.cast && o.id !== "default")
-	const cast = props.outputs.filter((o) => o.cast)
-
 	return (
 		<>
 			<option value="">System default</option>
-			{local.map((o) => (
-				<option key={o.id} value={o.id}>
-					{o.label}
-				</option>
-			))}
-			{cast.length > 0 ? (
-				<optgroup label="Cast">
-					{cast.map((o) => (
-						<option key={o.id} value={o.id}>
-							{o.label}
-						</option>
-					))}
-				</optgroup>
-			) : null}
+			{props.outputs
+				.filter((o) => o.id !== "default")
+				.map((o) => (
+					<option key={o.id} value={o.id}>
+						{o.label}
+					</option>
+				))}
 		</>
 	)
 }
@@ -791,7 +776,6 @@ type PanelProps = {
 	outputDevice: string
 	onOutputDevice: (id: string) => void
 	onRefreshOutputs: () => void
-	onOpenOutputs: () => void
 	mixtapeFormat: "mp3" | "aac"
 	onMixtapeFormat: (format: "mp3" | "aac") => void
 	canChooseFormat: boolean
@@ -941,7 +925,6 @@ export function StreamPanel(props: PanelProps) {
 		outputDevice,
 		onOutputDevice,
 		onRefreshOutputs,
-		onOpenOutputs,
 		mixtapeFormat,
 		onMixtapeFormat,
 		canChooseFormat,
@@ -1098,8 +1081,6 @@ export function StreamPanel(props: PanelProps) {
 				<select
 					className={css.select}
 					value={outputDevice}
-					onFocus={onOpenOutputs}
-					onMouseDown={onOpenOutputs}
 					onChange={(e) => onOutputDevice(e.target.value)}
 				>
 					<OutputOptions outputs={outputs} />
@@ -1174,7 +1155,6 @@ type FullProps = {
 	outputDevice: string
 	onOutputDevice: (id: string) => void
 	onRefreshOutputs: () => void
-	onOpenOutputs: () => void
 	mixtapeFormat: "mp3" | "aac"
 	onMixtapeFormat: (format: "mp3" | "aac") => void
 	canChooseFormat: boolean
@@ -1205,7 +1185,6 @@ export function FullScreen(props: FullProps) {
 		outputDevice,
 		onOutputDevice,
 		onRefreshOutputs,
-		onOpenOutputs,
 		mixtapeFormat,
 		onMixtapeFormat,
 		canChooseFormat,
@@ -1330,7 +1309,6 @@ export function FullScreen(props: FullProps) {
 						outputDevice={outputDevice}
 						onOutputDevice={onOutputDevice}
 						onRefreshOutputs={onRefreshOutputs}
-						onOpenOutputs={onOpenOutputs}
 						mixtapeFormat={mixtapeFormat}
 						onMixtapeFormat={onMixtapeFormat}
 						canChooseFormat={canChooseFormat}
@@ -1360,11 +1338,157 @@ type BarProps = {
 	outputs: AudioOutput[]
 	outputDevice: string
 	onOutputDevice: (id: string) => void
-	onOpenOutputs: () => void
+	castDevices: CastDevice[]
+	castTarget: string | null
+	castStatus: CastStatus
+	castError?: string
+	onOpenCast: () => void
+	onCast: (deviceId: string) => void
+	onStopCast: () => void
+	onRescanCast: () => void
 	onToggle: () => void
 	onVolume: (volume: number) => void
 	onMute: () => void
 	onExpand: () => void
+}
+
+type CastButtonProps = {
+	devices: CastDevice[]
+	target: string | null
+	status: CastStatus
+	error?: string
+	onOpen: () => void
+	onSelect: (deviceId: string) => void
+	onStop: () => void
+	onRescan: () => void
+}
+
+/**
+ * Casting, as its own control rather than an entry in the output picker.
+ *
+ * Handing a device the stream is not the same kind of act as choosing a sound
+ * card: the audio stops coming from this machine entirely and the device
+ * fetches it directly, which is why it gets a button people can find rather
+ * than a line buried in a dropdown.
+ */
+export function CastButton(props: CastButtonProps) {
+	const { devices, target, status, error, onOpen, onSelect, onStop, onRescan } =
+		props
+	const [open, setOpen] = useState(false)
+	const wrap = useRef<HTMLDivElement | null>(null)
+
+	useEffect(
+		function () {
+			if (!open) {
+				return
+			}
+
+			function dismiss(evt: MouseEvent) {
+				if (wrap.current && !wrap.current.contains(evt.target as Node)) {
+					setOpen(false)
+				}
+			}
+
+			function onKey(evt: KeyboardEvent) {
+				if (evt.key === "Escape") {
+					setOpen(false)
+				}
+			}
+
+			document.addEventListener("mousedown", dismiss)
+			document.addEventListener("keydown", onKey)
+			return function () {
+				document.removeEventListener("mousedown", dismiss)
+				document.removeEventListener("keydown", onKey)
+			}
+		},
+		[open],
+	)
+
+	function toggle() {
+		// Only on the way open. Browsing the network is what makes Windows ask
+		// about the firewall, so it waits for someone to actually want it.
+		if (!open) {
+			onOpen()
+		}
+		setOpen((x) => !x)
+	}
+
+	const casting = target !== null
+	const active = devices.find((d) => d.id === target)
+
+	return (
+		<div className={css.castWrap} ref={wrap}>
+			<button
+				type="button"
+				className={classnames(css.iconButton, { [css.castOn]: casting })}
+				onClick={toggle}
+				aria-label={casting ? "Casting, change device" : "Cast to a device"}
+				title={active ? `Casting to ${active.name}` : "Cast to a device"}
+			>
+				<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+					<path
+						d="M1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm0-4v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11zm20-7H3c-1.1 0-2 .9-2 2v3h2V5h18v14h-7v2h7c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"
+						fill="currentColor"
+					/>
+				</svg>
+			</button>
+
+			{open ? (
+				<div className={css.castMenu}>
+					{devices.length === 0 ? (
+						<div className={css.castNote}>Looking for devices...</div>
+					) : (
+						devices.map(function (device) {
+							return (
+								<button
+									key={device.id}
+									type="button"
+									className={classnames(css.menuItem, {
+										[css.castItemOn]: device.id === target,
+									})}
+									onClick={() => {
+										onSelect(device.id)
+										setOpen(false)
+									}}
+								>
+									{device.name}
+								</button>
+							)
+						})
+					)}
+
+					{casting ? (
+						<div className={css.castNote}>
+							{status === "playing"
+								? "Playing on the device"
+								: status === "failed"
+									? (error ?? "The device would not play this")
+									: `${status}...`}
+						</div>
+					) : null}
+
+					<div className={css.castMenuFoot}>
+						{casting ? (
+							<button
+								type="button"
+								className={css.menuItem}
+								onClick={() => {
+									onStop()
+									setOpen(false)
+								}}
+							>
+								Stop casting
+							</button>
+						) : null}
+						<button type="button" className={css.menuItem} onClick={onRescan}>
+							Search again
+						</button>
+					</div>
+				</div>
+			) : null}
+		</div>
+	)
 }
 
 export function NowPlayingBar(props: BarProps) {
@@ -1381,7 +1505,14 @@ export function NowPlayingBar(props: BarProps) {
 		outputs,
 		outputDevice,
 		onOutputDevice,
-		onOpenOutputs,
+		castDevices,
+		castTarget,
+		castStatus,
+		castError,
+		onOpenCast,
+		onCast,
+		onStopCast,
+		onRescanCast,
 		onToggle,
 		onVolume,
 		onMute,
@@ -1434,6 +1565,17 @@ export function NowPlayingBar(props: BarProps) {
 				<div className={css.barTitle}>{title}</div>
 				<div className={css.barSub}>{subtitle}</div>
 			</div>
+			<CastButton
+				devices={castDevices}
+				target={castTarget}
+				status={castStatus}
+				error={castError}
+				onOpen={onOpenCast}
+				onSelect={onCast}
+				onStop={onStopCast}
+				onRescan={onRescanCast}
+			/>
+
 			<div className={css.barStream}>
 				<div className={css.barFormat}>{format ?? "No stream"}</div>
 				<div className={css.barStreamSub}>
@@ -1449,8 +1591,6 @@ export function NowPlayingBar(props: BarProps) {
 					value={outputDevice}
 					aria-label="Audio output"
 					title="Audio output"
-					onFocus={onOpenOutputs}
-					onMouseDown={onOpenOutputs}
 					onChange={(e) => onOutputDevice(e.target.value)}
 				>
 					<OutputOptions outputs={outputs} />

@@ -864,6 +864,57 @@
 	display: none;
 }
 
+/* Casting. The menu opens upward because the button lives in the bottom bar. */
+
+.castWrap {
+	position: relative;
+	flex: none;
+	display: flex;
+}
+
+.castOn {
+	color: var(--nts-red);
+}
+
+.castOn:hover {
+	color: var(--nts-red);
+}
+
+.castMenu {
+	position: absolute;
+	bottom: 100%;
+	/* Anchored left: the button sits mid-bar now, so a right-anchored menu would
+	   run back toward the artwork instead of into the space beside it. */
+	left: 0;
+	z-index: 200;
+	min-width: 190px;
+	margin-bottom: 6px;
+	background: var(--nts-panel);
+	border: 1px solid var(--nts-line);
+	padding: 4px 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.castNote {
+	padding: 7px 12px;
+	font-size: 11px;
+	color: var(--nts-text-faint);
+	letter-spacing: 0.03em;
+}
+
+.castItemOn {
+	color: var(--nts-red);
+}
+
+.castMenuFoot {
+	border-top: 1px solid var(--nts-line-soft);
+	margin-top: 4px;
+	padding-top: 4px;
+	display: flex;
+	flex-direction: column;
+}
+
 /* Search */
 
 .searchRow {
