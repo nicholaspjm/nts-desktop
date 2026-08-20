@@ -18,6 +18,7 @@ import {
 } from "electron"
 import serve from "electron-serve"
 
+import { type CastDevice, CastDiscovery, type CastMedia, CastSession } from "./cast"
 import * as credentials from "./credentials"
 import * as diagnostics from "./diagnostics"
 import * as history from "./history"
@@ -44,6 +45,8 @@ export class NTSApplication {
 	evts: EventEmitter
 	production: boolean
 	liveTracks: NTSLiveTracks
+	castDiscovery: CastDiscovery
+	castSession: CastSession | null = null
 
 	constructor(production: boolean) {
 		this.window = makeWindow()
@@ -51,6 +54,16 @@ export class NTSApplication {
 		this.evts = new EventEmitter()
 		this.production = production
 		this.liveTracks = new NTSLiveTracks(this.window.webContents)
+		this.castDiscovery = new CastDiscovery((devices) => {
+			this.send("cast-devices", devices)
+		})
+	}
+
+	/** Sends to the renderer only while there is a live window to receive it. */
+	private send(channel: string, payload: unknown): void {
+		if (!this.window.isDestroyed()) {
+			this.window.webContents.send(channel, payload)
+		}
 	}
 
 	async init() {
@@ -106,6 +119,35 @@ export class NTSApplication {
 		ipcMain.handle("stream-info", (_evt: IpcMainInvokeEvent, url: string) =>
 			probeStream(url),
 		)
+
+		// Casting. Discovery only runs while someone is looking at the list, so
+		// the app is not holding a multicast socket open for a feature most
+		// sessions never use.
+		ipcMain.handle("cast-discover", () => {
+			this.castDiscovery.start()
+			return this.castDiscovery.list()
+		})
+
+		ipcMain.on("cast-rescan", () => this.castDiscovery.rescan())
+
+		ipcMain.handle(
+			"cast-start",
+			(_evt: IpcMainInvokeEvent, deviceId: string, media: CastMedia) => {
+				const device = this.castDiscovery
+					.list()
+					.find((d: CastDevice) => d.id === deviceId)
+				if (!device) {
+					return {
+						started: false,
+						reason: "that device is no longer on the network",
+					}
+				}
+				this.startCast(device, media)
+				return { started: true }
+			},
+		)
+
+		ipcMain.on("cast-stop", () => this.stopCast())
 
 		// Search results and the paste box both land here. openURL already
 		// validates that it is an nts.live show URL.
@@ -175,7 +217,13 @@ export class NTSApplication {
 		app.on("before-quit", () => {
 			quitting = true
 		})
-		app.on("will-quit", () => globalShortcut.unregisterAll())
+		app.on("will-quit", () => {
+			globalShortcut.unregisterAll()
+			// Leaves the device playing on purpose: it fetches the stream itself,
+			// so quitting the app is no reason to silence the speaker. Only the
+			// local resources are released.
+			this.castDiscovery.stop()
+		})
 		app.on("activate", () => this.open())
 
 		globalShortcut.register("Control+N", () => this.toggle())
@@ -222,6 +270,26 @@ export class NTSApplication {
 
 	isOpen() {
 		return this.window.isVisible()
+	}
+
+	/**
+	 * Hands a device the stream URL and watches what it does with it.
+	 *
+	 * Any existing session is stopped first: two receivers playing the same
+	 * radio station a few seconds apart is worse than either alone.
+	 */
+	startCast(device: CastDevice, media: CastMedia): void {
+		this.stopCast()
+
+		this.castSession = new CastSession(device, media, (state) => {
+			this.send("cast-state", state)
+		})
+		this.castSession.start()
+	}
+
+	stopCast(): void {
+		this.castSession?.stop()
+		this.castSession = null
 	}
 
 	close() {

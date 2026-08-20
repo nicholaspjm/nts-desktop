@@ -735,6 +735,38 @@ const STATUS_LABEL: Record<PlayerStatus, string> = {
 	failed: "Stream unavailable",
 }
 
+/**
+ * The contents of an output picker.
+ *
+ * Cast devices are grouped apart from sound cards because choosing one does
+ * something categorically different: the stream stops coming out of this
+ * machine and the device fetches it directly instead.
+ */
+function OutputOptions(props: { outputs: AudioOutput[] }) {
+	const local = props.outputs.filter((o) => !o.cast && o.id !== "default")
+	const cast = props.outputs.filter((o) => o.cast)
+
+	return (
+		<>
+			<option value="">System default</option>
+			{local.map((o) => (
+				<option key={o.id} value={o.id}>
+					{o.label}
+				</option>
+			))}
+			{cast.length > 0 ? (
+				<optgroup label="Cast">
+					{cast.map((o) => (
+						<option key={o.id} value={o.id}>
+							{o.label}
+						</option>
+					))}
+				</optgroup>
+			) : null}
+		</>
+	)
+}
+
 function StatusDot(props: { status: PlayerStatus }) {
 	return (
 		<span
@@ -759,6 +791,7 @@ type PanelProps = {
 	outputDevice: string
 	onOutputDevice: (id: string) => void
 	onRefreshOutputs: () => void
+	onOpenOutputs: () => void
 	mixtapeFormat: "mp3" | "aac"
 	onMixtapeFormat: (format: "mp3" | "aac") => void
 	canChooseFormat: boolean
@@ -908,6 +941,7 @@ export function StreamPanel(props: PanelProps) {
 		outputDevice,
 		onOutputDevice,
 		onRefreshOutputs,
+		onOpenOutputs,
 		mixtapeFormat,
 		onMixtapeFormat,
 		canChooseFormat,
@@ -1064,16 +1098,11 @@ export function StreamPanel(props: PanelProps) {
 				<select
 					className={css.select}
 					value={outputDevice}
+					onFocus={onOpenOutputs}
+					onMouseDown={onOpenOutputs}
 					onChange={(e) => onOutputDevice(e.target.value)}
 				>
-					<option value="">System default</option>
-					{outputs
-						.filter((o) => o.id !== "default")
-						.map((o) => (
-							<option key={o.id} value={o.id}>
-								{o.label}
-							</option>
-						))}
+					<OutputOptions outputs={outputs} />
 				</select>
 				<button
 					type="button"
@@ -1145,6 +1174,7 @@ type FullProps = {
 	outputDevice: string
 	onOutputDevice: (id: string) => void
 	onRefreshOutputs: () => void
+	onOpenOutputs: () => void
 	mixtapeFormat: "mp3" | "aac"
 	onMixtapeFormat: (format: "mp3" | "aac") => void
 	canChooseFormat: boolean
@@ -1175,6 +1205,7 @@ export function FullScreen(props: FullProps) {
 		outputDevice,
 		onOutputDevice,
 		onRefreshOutputs,
+		onOpenOutputs,
 		mixtapeFormat,
 		onMixtapeFormat,
 		canChooseFormat,
@@ -1299,6 +1330,7 @@ export function FullScreen(props: FullProps) {
 						outputDevice={outputDevice}
 						onOutputDevice={onOutputDevice}
 						onRefreshOutputs={onRefreshOutputs}
+						onOpenOutputs={onOpenOutputs}
 						mixtapeFormat={mixtapeFormat}
 						onMixtapeFormat={onMixtapeFormat}
 						canChooseFormat={canChooseFormat}
@@ -1328,6 +1360,7 @@ type BarProps = {
 	outputs: AudioOutput[]
 	outputDevice: string
 	onOutputDevice: (id: string) => void
+	onOpenOutputs: () => void
 	onToggle: () => void
 	onVolume: (volume: number) => void
 	onMute: () => void
@@ -1348,6 +1381,7 @@ export function NowPlayingBar(props: BarProps) {
 		outputs,
 		outputDevice,
 		onOutputDevice,
+		onOpenOutputs,
 		onToggle,
 		onVolume,
 		onMute,
@@ -1415,16 +1449,11 @@ export function NowPlayingBar(props: BarProps) {
 					value={outputDevice}
 					aria-label="Audio output"
 					title="Audio output"
+					onFocus={onOpenOutputs}
+					onMouseDown={onOpenOutputs}
 					onChange={(e) => onOutputDevice(e.target.value)}
 				>
-					<option value="">System default</option>
-					{outputs
-						.filter((o) => o.id !== "default")
-						.map((o) => (
-							<option key={o.id} value={o.id}>
-								{o.label}
-							</option>
-						))}
+					<OutputOptions outputs={outputs} />
 				</select>
 			) : null}
 

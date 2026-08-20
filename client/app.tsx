@@ -6,6 +6,14 @@ import { hlsStreams, streams } from "~/lib/stream"
 
 import { electron } from "./electron"
 import {
+	castDeviceId,
+	castTargetId,
+	startCast,
+	stopCast,
+	useCastDevices,
+	useCastState,
+} from "./lib/cast"
+import {
 	useHistory,
 	useMediaKeys,
 	useSleepTimer,
@@ -300,7 +308,22 @@ export function NTS() {
 
 	const search = useSearch(query)
 	const { outputs, refresh: refreshOutputs } = useAudioOutputs()
-	useAudioOutput(audioEl, preferences.outputDevice)
+
+	// Cast targets live in the same picker as sound cards, so a selection is
+	// either a local sink or a device on the network, never both.
+	const {
+		devices: castDevices,
+		discover: discoverCast,
+		rescan: rescanCast,
+	} = useCastDevices()
+	const castState = useCastState()
+	const castTarget = castDeviceId(preferences.outputDevice)
+	const casting = castTarget !== null
+
+	// A cast id is not a sink id. Handing it to setSinkId would reject on every
+	// render and log a warning for something that is working as intended.
+	const localOutput = casting ? "" : preferences.outputDevice
+	useAudioOutput(audioEl, localOutput)
 
 	const forgetOutputDevice = useCallback(
 		function () {
@@ -308,7 +331,58 @@ export function NTS() {
 		},
 		[updatePreferences],
 	)
-	useReconcileOutput(outputs, preferences.outputDevice, forgetOutputDevice)
+
+	// Skipped while casting: a device that has not answered mDNS yet is not a
+	// device that is gone, and clearing the choice on that would be wrong.
+	useReconcileOutput(
+		outputs,
+		casting ? "" : preferences.outputDevice,
+		forgetOutputDevice,
+	)
+
+	// While a device is playing, the local element is idle by design, so its
+	// status would read "idle" and look broken. The device's own state is the
+	// truthful answer to "is this playing", and it maps onto the same vocabulary
+	// the status dot and label already speak.
+	const displayStatus: PlayerStatus = casting
+		? castState.status === "buffering"
+			? "connecting"
+			: castState.status
+		: status
+
+	// One list for the picker. Local sinks and network devices are different
+	// animals, but from the listener's side both answer "where does this come
+	// out", so making them one choice keeps that honest.
+	const outputChoices = useMemo(
+		function () {
+			return [
+				...outputs.filter((o) => o.id !== "default"),
+				...castDevices.map((d) => ({
+					id: castTargetId(d.id),
+					label: d.name,
+					cast: true,
+				})),
+			]
+		},
+		[outputs, castDevices],
+	)
+
+	// Opening the picker is the moment someone might want a Cast device, and the
+	// first point at which paying the firewall cost is justified.
+	const handleOpenOutputs = useCallback(
+		function () {
+			discoverCast()
+		},
+		[discoverCast],
+	)
+
+	const refreshAllOutputs = useCallback(
+		function () {
+			refreshOutputs()
+			rescanCast()
+		},
+		[refreshOutputs, rescanCast],
+	)
 
 	const setMixtapeFormat = useCallback(
 		function (mixtapeFormat: "mp3" | "aac") {
@@ -345,7 +419,7 @@ export function NTS() {
 		[active, src],
 	)
 	const streamInfo = useStreamInfo(probeSrc)
-	const outputSampleRate = useOutputSampleRate(preferences.outputDevice)
+	const outputSampleRate = useOutputSampleRate(localOutput)
 	// Only a genuine reconnect counts. The first connect is not a recovery.
 	const health = useStreamHealth(audioEl, Boolean(active), status === "reconnecting")
 
@@ -396,6 +470,46 @@ export function NTS() {
 			}
 		},
 		[active, live.data, mixtape],
+	)
+
+	// Held in a ref so a show change does not restart the cast. Re-issuing LOAD
+	// is the only way to update what the device displays, and it interrupts the
+	// audio, which is a bad trade for a title that is right either way.
+	const nowRef = useRef(now)
+	nowRef.current = now
+
+	// Hand the device the stream URL and let it fetch the audio itself. That is
+	// what makes casting worth having: the stream reaches the speaker untouched
+	// and keeps playing whatever this machine does afterwards.
+	useEffect(
+		function () {
+			if (!castTarget || !src) {
+				return
+			}
+
+			const meta = nowRef.current
+			const isHls = src.includes(".m3u8")
+
+			startCast(castTarget, {
+				url: src,
+				contentType: isHls ? "application/vnd.apple.mpegurl" : "audio/mpeg",
+				// NTS delivers HLS as MP3 segments, where a receiver would otherwise
+				// assume AAC and refuse them.
+				...(isHls ? { hlsSegmentFormat: "mp3" as const } : {}),
+				title: meta.title,
+				subtitle: meta.subtitle,
+				image: meta.image,
+			}).then(function (result) {
+				if (!result.started) {
+					console.warn("could not cast:", result.reason)
+				}
+			})
+
+			return function () {
+				stopCast()
+			}
+		},
+		[castTarget, src],
 	)
 
 	return (
@@ -472,16 +586,17 @@ export function NTS() {
 				<NowPlayingBar
 					now={now}
 					probe={streamInfo.probe}
-					status={status}
+					status={displayStatus}
 					playing={Boolean(active)}
 					volume={preferences.volume}
 					muted={muted}
 					source={active}
 					onChannel={toggleChannel}
 					health={health}
-					outputs={outputs}
+					outputs={outputChoices}
 					outputDevice={preferences.outputDevice}
 					onOutputDevice={setOutputDevice}
+					onOpenOutputs={handleOpenOutputs}
 					onToggle={toggle}
 					onVolume={(v) => {
 						setMuted(false)
@@ -500,10 +615,11 @@ export function NTS() {
 					health={health}
 					detailed={detailedStream}
 					onDetailed={setDetailedStream}
-					outputs={outputs}
+					outputs={outputChoices}
 					outputDevice={preferences.outputDevice}
 					onOutputDevice={setOutputDevice}
-					onRefreshOutputs={refreshOutputs}
+					onRefreshOutputs={refreshAllOutputs}
+					onOpenOutputs={handleOpenOutputs}
 					mixtapeFormat={preferences.mixtapeFormat}
 					onMixtapeFormat={setMixtapeFormat}
 					canChooseFormat={Boolean(mixtape?.streamAac)}
@@ -513,7 +629,7 @@ export function NTS() {
 					onSleep={sleep.set}
 					onCancelSleep={sleep.cancel}
 					outputSampleRate={outputSampleRate}
-					status={status}
+					status={displayStatus}
 					playing={Boolean(active)}
 					volume={preferences.volume}
 					onToggle={toggle}
@@ -526,8 +642,8 @@ export function NTS() {
 			) : null}
 
 			<Player
-				src={src}
-				playing={Boolean(active)}
+				src={casting ? null : src}
+				playing={Boolean(active) && !casting}
 				onPlay={() => {}}
 				onStop={() => {}}
 				onStatus={setStatus}

@@ -3,6 +3,10 @@ import { useCallback, useEffect, useRef, useState } from "react"
 export type AudioOutput = {
 	id: string
 	label: string
+	// Set for devices on the network rather than sound cards on this machine.
+	// They are offered in the same picker but behave completely differently: a
+	// Cast device fetches the stream itself instead of being fed by the browser.
+	cast?: boolean
 }
 
 /**
