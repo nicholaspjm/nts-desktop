@@ -63,6 +63,26 @@ await esbuild.build({
 console.log("Copying preload.js...")
 fs.copyFileSync(path.join(root, "app/preload.js"), path.join(dist, "preload.js"))
 
+// castv2 reads its protobuf schema off disk at runtime, with
+// `protobuf.load(__dirname + "/cast_channel.proto")`. Bundling rewrites
+// __dirname to the output directory, so without this the file is simply absent
+// and every Cast message throws "extension not loaded yet" the moment someone
+// tries to cast. It is copied next to the bundle so that path resolves.
+//
+// Verified by bundling castv2 the same way and watching it fail to open the
+// file, then succeed once it was there.
+console.log("Copying cast protobuf schema...")
+const castProto = path.join(
+	root,
+	"node_modules/castv2/lib/cast_channel.proto",
+)
+if (!fs.existsSync(castProto)) {
+	// Failing the build is the point: shipping without it produces an app whose
+	// cast button silently does nothing.
+	throw new Error(`cast_channel.proto not found at ${castProto}`)
+}
+fs.copyFileSync(castProto, path.join(dist, "cast_channel.proto"))
+
 console.log("Building client...")
 fs.rmSync(path.join(dist, "client"), { recursive: true, force: true })
 const vite = await import("vite")
