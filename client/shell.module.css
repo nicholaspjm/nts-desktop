@@ -385,7 +385,12 @@
 	min-width: 0;
 }
 
-.rowTime {
+/* The schedule's start times, which are real times. */
+.rowTime,
+/* And a tracklist position, which is not: the timings are a Supporter feature
+   and the app does not read them. Separate names so the two cannot be confused
+   for each other later. */
+	.rowIndex {
 	color: var(--nts-text-muted);
 	flex: none;
 	width: 84px;

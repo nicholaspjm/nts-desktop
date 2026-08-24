@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
-import { type Tag, tags } from "./tags"
+import { type Tag, tags } from "~/lib/tags"
 
 /**
  * Browsing the NTS archive by mood and genre.

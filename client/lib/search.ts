@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 
-import { type Tag, tags } from "./tags"
+import { type Tag, tags } from "~/lib/tags"
 
 export type SearchResult = {
 	title: string

@@ -1012,6 +1012,7 @@ export function ArchiveView(props: ArchiveProps) {
 						{show.location ? <span>{show.location}</span> : null}
 						<span>{show.source?.source ?? "no audio source"}</span>
 					</div>
+					<Tags genres={show.genres} moods={show.moods} maxGenres={6} maxMoods={3} />
 					<div className={css.cardActions}>
 						<button
 							type="button"
@@ -1040,7 +1041,9 @@ export function ArchiveView(props: ArchiveProps) {
 					{show.tracklist.map(function (track, i) {
 						return (
 							<div key={`${track.artist}-${track.title}-${i}`} className={css.row}>
-								<span className={css.rowTime}>{String(i + 1).padStart(2, "0")}</span>
+								<span className={css.rowIndex}>
+									{String(i + 1).padStart(2, "0")}
+								</span>
 								<span className={css.rowName}>
 									{track.artist ? `${track.artist} - ` : ""}
 									{track.title}
