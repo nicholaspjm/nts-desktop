@@ -760,6 +760,7 @@ export function NTS() {
 					outputDevice={preferences.outputDevice}
 					onOutputDevice={setOutputDevice}
 					onRefreshOutputs={refreshOutputs}
+					outputBypassed={Boolean(playingShow) && !active}
 					castDevices={castDevices}
 					castTarget={castTarget}
 					castingNow={casting}

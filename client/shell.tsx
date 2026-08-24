@@ -98,6 +98,10 @@ type TitleBarProps = {
 	outputDevice: string
 	onOutputDevice: (id: string) => void
 	onRefreshOutputs: () => void
+	// True while a recorded show is loaded. Those play inside SoundCloud's or
+	// Mixcloud's own iframe, and a page cannot route audio belonging to another
+	// origin, so the choice below genuinely does not reach them.
+	outputBypassed?: boolean
 	castDevices: CastDevice[]
 	castTarget: string | null
 	castingNow: boolean
@@ -121,6 +125,7 @@ export function TitleBar(props: TitleBarProps) {
 		outputDevice,
 		onOutputDevice,
 		onRefreshOutputs,
+		outputBypassed,
 		castDevices,
 		castTarget,
 		castingNow,
@@ -247,6 +252,13 @@ export function TitleBar(props: TitleBarProps) {
 									</button>
 								)
 							})}
+
+						{outputBypassed ? (
+							<div className={css.menuNote}>
+								Recorded shows play through SoundCloud or Mixcloud and always use the
+								system default. This applies to the live channels and the mixtapes.
+							</div>
+						) : null}
 
 						<div className={css.menuRule} />
 

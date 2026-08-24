@@ -108,6 +108,16 @@
 	color: var(--nts-text);
 }
 
+/* Said once, where the choice is made, rather than left to be discovered by a
+   setting that quietly does nothing. */
+.menuNote {
+	padding: 6px 12px 8px;
+	font-size: 11px;
+	line-height: 1.4;
+	color: var(--nts-text-faint);
+	max-width: 260px;
+}
+
 .menuRule {
 	height: 1px;
 	margin: 4px 0;
