@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react"
 import type { ShowInfo } from "~/app/show"
+import type { SeekRequest } from "./lib/seek"
 
 import css from "./mixcloud.module.css"
 
@@ -10,7 +11,7 @@ type Props = {
 	onPlay: () => void
 	onProgress: (pos: number) => void
 	onLoad: (dur: number) => void
-	position: number
+	seek: SeekRequest | null
 	volume?: number
 }
 
@@ -23,6 +24,12 @@ type SCWidget = {
 	setVolume(volume: number): void
 }
 
+// A drag fires onChange on every input event, so one drag is dozens of requests
+// and only the last is the one meant. Waiting this long before acting collapses
+// them into a single seek, which also stops the audio stuttering through every
+// point dragged past.
+const SEEK_SETTLE = 150
+
 export function Soundcloud(props: Props) {
 	const {
 		show,
@@ -31,7 +38,7 @@ export function Soundcloud(props: Props) {
 		onPlay,
 		onProgress,
 		onLoad,
-		position,
+		seek,
 		volume = 1,
 	} = props
 
@@ -43,7 +50,6 @@ export function Soundcloud(props: Props) {
 	// directly without seeing a stale value.
 	const wanted = useRef(playing)
 	wanted.current = playing
-	const seeking = useRef<boolean>(false)
 
 	useEffect(
 		function () {
@@ -66,10 +72,6 @@ export function Soundcloud(props: Props) {
 			w.bind(Events.PLAY_PROGRESS, function (evt: { currentPosition: number }) {
 				const position = evt.currentPosition / 1000
 				const rounded = Math.round(position)
-
-				if (seeking.current) {
-					seeking.current = false
-				}
 
 				onProgress(rounded)
 			})
@@ -106,27 +108,26 @@ export function Soundcloud(props: Props) {
 		[show, onStop, onLoad, onPlay, onProgress],
 	)
 
+	// Acts only on what the user asked for. This used to watch the playback
+	// position and compare it against the widget's own, which meant a progress
+	// report arriving late looked like a request to move and undid the seek that
+	// had just been made.
 	useEffect(
 		function () {
-			if (!widget.current) {
+			const w = widget.current
+			if (!w || !seek) {
 				return
 			}
 
-			widget.current?.getPosition(function (curr: number) {
-				if (seeking.current) {
-					// already seeking, skip
-					return
-				}
-				if (Math.abs(position - curr / 1000) < 1) {
-					// to close to current position, skip
-					return
-				}
-				seeking.current = true
-				widget.current?.seekTo(position * 1000)
-				seeking.current = false
-			})
+			const timer = setTimeout(function () {
+				w.seekTo(seek.to * 1000)
+			}, SEEK_SETTLE)
+
+			return function () {
+				clearTimeout(timer)
+			}
 		},
-		[position],
+		[seek],
 	)
 
 	useEffect(

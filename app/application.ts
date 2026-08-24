@@ -58,6 +58,8 @@ export class NTSApplication {
 	mini = false
 	// Bumped per open so a slow show cannot land after a newer one was asked for.
 	private openRequest = 0
+	// Preference writes queue behind each other rather than racing on one file.
+	private preferenceWrites: Promise<void> = Promise.resolve()
 	// The label of the chosen output device. A label rather than an id because
 	// the players are cross-origin and ids do not survive that boundary.
 	private outputLabel = ""
@@ -499,8 +501,6 @@ export class NTSApplication {
 	async syncPreferences() {
 		const prefs = await preferences.read()
 		this.window.webContents.send("preferences", prefs)
-		this.window.webContents.send("preferences", prefs)
-		this.window.webContents.send("preferences", prefs)
 	}
 
 	toggle() {
@@ -626,12 +626,36 @@ export class NTSApplication {
 		shell.openExternal("https://www.nts.live/schedule")
 	}
 
-	async storePreferences(prefs: Partial<preferences.Preferences>) {
-		const old = await preferences.read()
-		await preferences.write({
-			...old,
-			...prefs,
-		})
+	/**
+	 * Applies a preference change, one at a time.
+	 *
+	 * Read then write is two steps, and nothing kept two of them from
+	 * interleaving. The renderer sends the whole preferences object on every
+	 * change and the volume sliders send on every input event, so one drag was
+	 * dozens of overlapping read-modify-write cycles against a single file: an
+	 * earlier write could land last and leave the volume at a value dragged
+	 * through, and two writes overlapping could leave the file unparseable, which
+	 * silently reset every setting.
+	 *
+	 * Chaining onto the previous one keeps them in order. Failures are swallowed
+	 * deliberately, since a rejected link would otherwise poison every write
+	 * after it.
+	 */
+	storePreferences(prefs: Partial<preferences.Preferences>): Promise<void> {
+		async function apply() {
+			const old = await preferences.read()
+			await preferences.write({ ...old, ...prefs })
+		}
+
+		// Passed as both handlers so one failed write does not stop the next from
+		// being attempted, and caught so the chain itself never settles rejected,
+		// which would surface as an unhandled rejection on every later write.
+		this.preferenceWrites = this.preferenceWrites
+			.then(apply, apply)
+			.catch(function (err) {
+				diagnostics.record("preferences write failed", String(err))
+			})
+		return this.preferenceWrites
 	}
 }
 

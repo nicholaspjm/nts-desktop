@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import type { ShowInfo } from "~/app/show"
+import type { SeekRequest } from "./lib/seek"
 
 import css from "./mixcloud.module.css"
 
@@ -10,9 +11,15 @@ type Props = {
 	onPlay: () => void
 	onProgress: (pos: number) => void
 	onLoad: (dur: number) => void
-	position: number
+	seek: SeekRequest | null
 	volume?: number
 }
+
+// A drag fires onChange on every input event, so one drag is dozens of requests
+// and only the last is the one meant. Waiting this long before acting collapses
+// them into a single seek, which also stops the audio stuttering through every
+// point dragged past.
+const SEEK_SETTLE = 150
 
 export function Mixcloud(props: Props) {
 	const {
@@ -22,7 +29,7 @@ export function Mixcloud(props: Props) {
 		onPlay,
 		onProgress,
 		onLoad,
-		position,
+		seek,
 		volume = 1,
 	} = props
 
@@ -80,20 +87,23 @@ export function Mixcloud(props: Props) {
 		[show, onLoad, onPlay, onStop, onProgress],
 	)
 
+	// As in soundcloud.tsx: only a request from the user seeks. Watching the
+	// playback position meant the widget's own progress was fed back to it.
 	useEffect(
 		function () {
-			if (!widget) {
+			if (!widget || !seek) {
 				return
 			}
 
-			widget.getPosition().then(function (curr) {
-				if (Math.abs(position - curr) < 1) {
-					return
-				}
-				widget.seek(position)
-			})
+			const timer = setTimeout(function () {
+				widget.seek(seek.to)
+			}, SEEK_SETTLE)
+
+			return function () {
+				clearTimeout(timer)
+			}
 		},
-		[position, widget],
+		[seek, widget],
 	)
 
 	useEffect(

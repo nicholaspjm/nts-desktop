@@ -25,6 +25,7 @@ import { useMixtapes } from "./lib/mixtapes"
 import { useAudioOutput, useAudioOutputs, useReconcileOutput } from "./lib/outputs"
 import { usePreferences } from "./lib/preferences"
 import { type SortOrder, useSearch } from "./lib/search"
+import type { SeekRequest } from "./lib/seek"
 import {
 	useOutputSampleRate,
 	useStreamHealth,
@@ -128,6 +129,11 @@ export function NTS() {
 	// something else. "archive" stands for whatever playingShow holds.
 	const [lastPlayed, setLastPlayed] = useState<Source | "archive" | null>(null)
 	const [position, setPosition] = useState(0)
+	// What the user asked for, as opposed to where playback has got to. See
+	// lib/seek.ts: these used to be the same value, which made a player's own
+	// progress reports look like requests to move.
+	const [seek, setSeek] = useState<SeekRequest | null>(null)
+	const seekId = useRef(0)
 	// Reported by the embedded players once they are ready. Zero means nothing is
 	// loaded yet, which is what the scrub bar keys off.
 	const [duration, setDuration] = useState(0)
@@ -693,6 +699,14 @@ export function NTS() {
 		setArchiveLive(true)
 	}, [])
 
+	// Moves the thumb straight away so the scrub bar stays under the finger, and
+	// records the request separately for the player to act on.
+	const requestSeek = useCallback(function (to: number) {
+		seekId.current += 1
+		setPosition(to)
+		setSeek({ to, id: seekId.current })
+	}, [])
+
 	const now = useMemo(
 		function (): NowPlaying {
 			// Archive shows play through the embedded players and never touch
@@ -924,7 +938,7 @@ export function NTS() {
 							starting={viewingPlayingShow && archivePlaying && !archiveLive}
 							position={viewingPlayingShow ? position : 0}
 							duration={viewingPlayingShow ? duration : 0}
-							onSeek={setPosition}
+							onSeek={requestSeek}
 							onToggle={toggleArchive}
 							onOriginal={(url) => electron.send("open-external", url)}
 						/>
@@ -937,7 +951,7 @@ export function NTS() {
 					playing={playing}
 					position={position}
 					duration={duration}
-					onSeek={setPosition}
+					onSeek={requestSeek}
 					onOpenPlaying={
 						playingShow
 							? function () {
@@ -1039,7 +1053,7 @@ export function NTS() {
 					onStop={handleArchiveStop}
 					onLoad={setDuration}
 					onProgress={handleArchiveProgress}
-					position={position}
+					seek={seek}
 					volume={preferences.volume}
 				/>
 			)}
@@ -1052,7 +1066,7 @@ export function NTS() {
 					onStop={handleArchiveStop}
 					onLoad={setDuration}
 					onProgress={handleArchiveProgress}
-					position={position}
+					seek={seek}
 					volume={preferences.volume}
 				/>
 			)}
