@@ -397,6 +397,43 @@
 	font-variant-numeric: tabular-nums;
 }
 
+/* The whole point of a tracklist is looking the record up afterwards, and the
+   app disables selection globally for the chrome, which took the tracklist with
+   it. Selection is turned back on here. */
+.tracklist .rowName,
+.tracklist .rowIndex {
+	user-select: text;
+	cursor: text;
+}
+
+.copyTrack {
+	appearance: none;
+	background: none;
+	border: 1px solid var(--nts-line);
+	color: var(--nts-text-faint);
+	font: inherit;
+	font-size: 10px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	padding: 2px 7px;
+	cursor: pointer;
+	/* Pushed to the right of the row, and out of the way until wanted. */
+	margin-left: auto;
+	flex: none;
+	opacity: 0;
+	transition: opacity 150ms;
+}
+
+.row:hover .copyTrack,
+.copyTrack:focus-visible {
+	opacity: 1;
+}
+
+.copyTrack:hover {
+	color: var(--nts-text);
+	border-color: var(--nts-line-strong);
+}
+
 .rowName {
 	min-width: 0;
 	overflow-wrap: anywhere;
@@ -861,6 +898,46 @@
 	50% {
 		opacity: 0.25;
 	}
+}
+
+/* The archive scrub bar. Shares the volume slider's look, since both are the
+   same kind of control, but sized for a bar that has to show two timestamps. */
+.scrub {
+	flex: none;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+
+.scrubTime {
+	font-size: 11px;
+	color: var(--nts-text-muted);
+	font-variant-numeric: tabular-nums;
+	flex: none;
+}
+
+.scrubRange {
+	flex: none;
+	width: 160px;
+	height: 12px;
+	appearance: none;
+	background: none;
+	cursor: pointer;
+}
+
+.scrubRange::-webkit-slider-runnable-track {
+	height: 2px;
+	background: var(--nts-line);
+}
+
+.scrubRange::-webkit-slider-thumb {
+	appearance: none;
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	background: var(--nts-text);
+	margin-top: -5px;
 }
 
 .volume {

@@ -116,6 +116,9 @@ export function NTS() {
 
 	const [show, setShow] = useState<ArchiveShow | null>(null)
 	const [position, setPosition] = useState(0)
+	// Reported by the embedded players once they are ready. Zero means nothing is
+	// loaded yet, which is what the scrub bar keys off.
+	const [duration, setDuration] = useState(0)
 	const [looped, setLooped] = useState(0)
 	const [archivePlaying, setArchivePlaying] = useState(false)
 	const [isShowingHelp, setIsShowingHelp] = useState(false)
@@ -328,6 +331,7 @@ export function NTS() {
 		setArchivePlaying(false)
 		setView("archive")
 		setPosition(0)
+		setDuration(0)
 		setLooped(0)
 	})
 
@@ -534,6 +538,24 @@ export function NTS() {
 
 	const now = useMemo(
 		function (): NowPlaying {
+			// Archive shows play through the embedded players and never touch
+			// `active`, so without this the bar read "Nothing playing" over a show
+			// that was audibly playing.
+			if (archivePlaying && show) {
+				return {
+					title: show.name,
+					subtitle: show.location ? `Archive · ${show.location}` : "Archive",
+					image: show.image,
+					description: "",
+					genres: show.genres,
+					moods: show.moods,
+					location: show.location,
+					showAlias: "",
+					starts: null,
+					ends: null,
+				}
+			}
+
 			if (!active) {
 				return {
 					title: "Nothing playing",
@@ -565,23 +587,23 @@ export function NTS() {
 			}
 
 			const info = active.id === 1 ? live.data?.channel1 : live.data?.channel2
-			const show = info?.now
+			const onAir = info?.now
 			return {
-				title: show?.name ?? `Channel ${active.id}`,
-				subtitle: show?.location
-					? `NTS ${active.id} - ${show.location}`
+				title: onAir?.name ?? `Channel ${active.id}`,
+				subtitle: onAir?.location
+					? `NTS ${active.id} - ${onAir.location}`
 					: `NTS ${active.id}`,
-				image: show?.image ?? "",
-				description: show?.description ?? "",
-				genres: show?.genres ?? [],
-				moods: show?.moods ?? [],
-				location: show?.location ?? "",
-				showAlias: show?.showAlias ?? "",
-				starts: show?.starts ?? null,
-				ends: show?.ends ?? null,
+				image: onAir?.image ?? "",
+				description: onAir?.description ?? "",
+				genres: onAir?.genres ?? [],
+				moods: onAir?.moods ?? [],
+				location: onAir?.location ?? "",
+				showAlias: onAir?.showAlias ?? "",
+				starts: onAir?.starts ?? null,
+				ends: onAir?.ends ?? null,
 			}
 		},
-		[active, live.data, mixtape],
+		[active, archivePlaying, live.data, mixtape, show],
 	)
 
 	// Held in a ref so a show change does not restart the cast. Re-issuing LOAD
@@ -739,6 +761,9 @@ export function NTS() {
 					probe={streamInfo.probe}
 					status={displayStatus}
 					playing={playing}
+					position={position}
+					duration={duration}
+					onSeek={setPosition}
 					volume={preferences.volume}
 					muted={muted}
 					source={active}
@@ -817,7 +842,7 @@ export function NTS() {
 					playing={archivePlaying}
 					onPlay={() => setArchivePlaying(true)}
 					onStop={() => setArchivePlaying(false)}
-					onLoad={() => {}}
+					onLoad={setDuration}
 					onProgress={(pos: number) => setPosition(Math.round(pos))}
 					position={position}
 					volume={preferences.volume}
@@ -830,7 +855,7 @@ export function NTS() {
 					playing={archivePlaying}
 					onPlay={() => setArchivePlaying(true)}
 					onStop={() => setArchivePlaying(false)}
-					onLoad={() => {}}
+					onLoad={setDuration}
 					onProgress={(pos: number) => setPosition(Math.round(pos))}
 					position={position}
 					volume={preferences.volume}

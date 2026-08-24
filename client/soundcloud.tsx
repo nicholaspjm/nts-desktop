@@ -37,6 +37,12 @@ export function Soundcloud(props: Props) {
 
 	const ref = useRef<HTMLIFrameElement | null>(null)
 	const widget = useRef<SCWidget | null>(null)
+
+	// Whether the app wants sound, as opposed to whether the widget happens to be
+	// ready. The READY handler is bound once, so it cannot read `playing`
+	// directly without seeing a stale value.
+	const wanted = useRef(playing)
+	wanted.current = playing
 	const seeking = useRef<boolean>(false)
 
 	useEffect(
@@ -72,7 +78,13 @@ export function Soundcloud(props: Props) {
 					onLoad(duration / 1000)
 				})
 
-				w.play()
+				// Only if the app actually asked for playback. This used to play
+				// unconditionally, so opening a show to read its details started it.
+				// Read through a ref because this handler is bound once and would
+				// otherwise see `playing` as it was when the widget was created.
+				if (wanted.current) {
+					w.play()
+				}
 				widget.current = w
 			})
 

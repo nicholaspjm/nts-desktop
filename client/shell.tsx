@@ -52,8 +52,10 @@ export type NowPlaying = {
 	subtitle: string
 	image: string
 	description: string
-	genres: string[]
-	moods: string[]
+	// TagLike rather than plain strings: the live API gives bare names while an
+	// archive show carries the API's own id and name pairs, and both end up here.
+	genres: TagLike[]
+	moods: TagLike[]
 	// Where the show is broadcast from. Empty for mixtapes and when idle. The
 	// mini player prints it on its own, the way the original did.
 	location: string
@@ -987,6 +989,45 @@ type ArchiveProps = {
 	onOriginal: (url: string) => void
 }
 
+/**
+ * Copies one track's artist and title.
+ *
+ * The point of a tracklist is finding the record afterwards, and retyping what
+ * is already on screen is the friction between the two. Confirms in place
+ * rather than with a toast, so the answer sits next to the thing acted on.
+ */
+function CopyTrack(props: { text: string }) {
+	const [done, setDone] = useState(false)
+
+	useEffect(
+		function () {
+			if (!done) {
+				return
+			}
+			const timer = setTimeout(() => setDone(false), 1400)
+			return () => clearTimeout(timer)
+		},
+		[done],
+	)
+
+	return (
+		<button
+			type="button"
+			className={css.copyTrack}
+			title="Copy this track"
+			aria-label={`Copy ${props.text}`}
+			onClick={function () {
+				navigator.clipboard.writeText(props.text).then(
+					() => setDone(true),
+					() => {},
+				)
+			}}
+		>
+			{done ? "Copied" : "Copy"}
+		</button>
+	)
+}
+
 export function ArchiveView(props: ArchiveProps) {
 	const { show, playing, onToggle, onOriginal, backLabel, onBack } = props
 
@@ -1048,6 +1089,11 @@ export function ArchiveView(props: ArchiveProps) {
 									{track.artist ? `${track.artist} - ` : ""}
 									{track.title}
 								</span>
+								<CopyTrack
+									text={
+										track.artist ? `${track.artist} - ${track.title}` : track.title
+									}
+								/>
 							</div>
 						)
 					})}
@@ -1718,6 +1764,11 @@ type BarProps = {
 	source: Source | null
 	onChannel: (id: 1 | 2) => void
 	health: StreamHealth
+	// Only meaningful for archive shows, which have an end. A live stream has no
+	// length, so zero means no scrub bar rather than a bar stuck at zero.
+	position: number
+	duration: number
+	onSeek: (seconds: number) => void
 	onToggle: () => void
 	onVolume: (volume: number) => void
 	onMute: () => void
@@ -2024,6 +2075,15 @@ export function MiniPlayer(props: MiniProps) {
 	)
 }
 
+/** Seconds as m:ss, or h:mm:ss once a show runs past the hour. */
+function clock(seconds: number): string {
+	const whole = Math.max(0, Math.floor(seconds))
+	const h = Math.floor(whole / 3600)
+	const m = Math.floor((whole % 3600) / 60)
+	const sec = String(whole % 60).padStart(2, "0")
+	return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`
+}
+
 export function NowPlayingBar(props: BarProps) {
 	const {
 		now,
@@ -2035,6 +2095,9 @@ export function NowPlayingBar(props: BarProps) {
 		source,
 		onChannel,
 		health,
+		position,
+		duration,
+		onSeek,
 		onToggle,
 		onVolume,
 		onMute,
@@ -2087,6 +2150,25 @@ export function NowPlayingBar(props: BarProps) {
 				<div className={css.barTitle}>{title}</div>
 				<div className={css.barSub}>{subtitle}</div>
 			</div>
+			{/* Only for something with an end. A live stream has no length, so this
+			    stays out of the way entirely rather than sitting at zero. */}
+			{duration > 0 ? (
+				<div className={css.scrub}>
+					<span className={css.scrubTime}>{clock(position)}</span>
+					<input
+						className={css.scrubRange}
+						type="range"
+						min={0}
+						max={Math.floor(duration)}
+						step={1}
+						value={Math.min(position, Math.floor(duration))}
+						aria-label="Seek"
+						onChange={(e) => onSeek(Number(e.target.value))}
+					/>
+					<span className={css.scrubTime}>{clock(duration)}</span>
+				</div>
+			) : null}
+
 			<div className={css.barStream}>
 				<div className={css.barFormat}>{format ?? "No stream"}</div>
 				<div className={css.barStreamSub}>
