@@ -131,7 +131,13 @@ jobs:
         continue-on-error: true
         shell: bash
         run: |
-          for app in bundle/mac-*/*.app; do
+          # mac*/ rather than mac-*/: electron-builder writes arm64 to
+          # bundle/mac-arm64 but x64 to plain bundle/mac, so the narrower glob
+          # checked only half of what shipped and said nothing about the rest.
+          found=0
+          for app in bundle/mac*/*.app; do
+            [ -e "$app" ] || continue
+            found=$((found + 1))
             echo "=== $app ==="
             codesign -dv --verbose=2 "$app" 2>&1 | grep -E "Authority|TeamIdentifier|flags" || true
             echo "--- notarisation ticket ---"
@@ -139,6 +145,13 @@ jobs:
             echo "--- Gatekeeper verdict ---"
             spctl -a -vvv -t install "$app" 2>&1 | tail -3 || true
           done
+
+          # A glob that matches nothing looks exactly like a clean pass here.
+          if [ "$found" -eq 0 ]; then
+            echo "::warning::No .app was found to verify, so nothing above proves what shipped."
+          else
+            echo "verified $found app bundle(s)"
+          fi
 
       # arm64 and x64 mean nothing to most people downloading this.
       - name: Give the installers readable names
