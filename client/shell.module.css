@@ -864,76 +864,195 @@
 	display: none;
 }
 
-/* Mini player. The whole strip drags, since this mode has no title bar. */
+/* Mini player.
+   A reconstruction of the popup this project started as: the artwork fills the
+   window and everything else is printed on top of it in solid black blocks.
+   The whole surface drags, since this mode has no title bar. */
 
 .mini {
 	position: fixed;
 	inset: 0;
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	padding: 12px 10px;
-	background: var(--nts-panel);
-	border: 1px solid var(--nts-line);
+	overflow: hidden;
+	background: var(--nts-black);
 	color: var(--nts-text);
 	-webkit-app-region: drag;
 }
 
-.miniArt {
-	flex: none;
-	/* Square, because NTS artwork is square and stretching it to the strip's
-	   height would crop the show art rather than show it. */
-	width: 88px;
-	height: 88px;
-	background: var(--nts-surface) center / cover no-repeat;
+.miniImage {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+	background: var(--nts-surface);
+	user-select: none;
 }
 
-.miniText {
-	flex: 1;
-	min-width: 0;
+.miniHeader {
+	position: absolute;
+	top: 8px;
+	left: 8px;
 	display: flex;
-	flex-direction: column;
-	gap: 4px;
-}
-
-.miniTitle {
-	font-size: 13px;
-	line-height: 1.25;
-	/* Two lines, because a show title truncated to one is often just the host. */
-	display: -webkit-box;
-	-webkit-line-clamp: 2;
-	-webkit-box-orient: vertical;
-	overflow: hidden;
-}
-
-.miniSub {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	font-size: 11px;
-	color: var(--nts-text-muted);
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
-.miniPlay {
-	flex: none;
-	appearance: none;
-	width: 34px;
-	height: 34px;
-	border: 1px solid var(--nts-line-strong);
-	background: none;
+	padding: 4px 8px 4px 4px;
+	background: var(--nts-black);
 	color: var(--nts-text);
+	border: none;
+	outline: none;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+	transition: background 300ms, color 300ms;
+	-webkit-app-region: no-drag;
+}
+
+/* Playing inverts the header, which is how the original showed state without
+   spending any space on a label. */
+.miniPlaying .miniHeader {
+	background: var(--nts-text);
+	color: var(--nts-black);
+}
+
+.miniCh {
+	position: relative;
+	width: 32px;
+	height: 32px;
+	margin-right: 8px;
+	background: var(--nts-text);
+	color: var(--nts-black);
+	font-weight: 900;
+	font-size: 19px;
+	line-height: 32px;
+	text-align: center;
+	transition: background 300ms, color 300ms;
+}
+
+.miniPlaying .miniCh {
+	background: var(--nts-black);
+	color: var(--nts-text);
+}
+
+/* The number fades out and the transport takes its place under the cursor. */
+.miniHeader:hover .miniCh {
+	color: transparent;
+}
+
+.miniPlayGlyph {
+	position: absolute;
+	inset: 0;
+	margin: auto;
+	opacity: 0;
+	transition: opacity 200ms;
+	fill: var(--nts-black);
+}
+
+.miniPlaying .miniPlayGlyph {
+	fill: var(--nts-text);
+}
+
+.miniHeader:hover .miniPlayGlyph {
+	opacity: 1;
+}
+
+/* An empty channel square would be a hole, so the transport stays visible when
+   there is no number to print, as with a mixtape. Driven by a class rather than
+   :empty, because the square always contains the glyph and so is never empty. */
+.miniChBare .miniPlayGlyph {
+	opacity: 1;
+}
+
+.miniLive {
+	font-weight: bold;
+	font-size: 11px;
+	line-height: 1.1;
+	margin-top: 1px;
+	text-transform: uppercase;
+}
+
+.miniDot {
+	color: var(--nts-red);
+	display: inline-block;
+	padding: 0 3px;
+	position: relative;
+	top: -1px;
+	animation: miniPulse 3000ms reverse infinite;
+}
+
+@keyframes miniPulse {
+	0% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0;
+	}
+	100% {
+		opacity: 1;
+	}
+}
+
+.miniFooter {
+	position: absolute;
+	bottom: 14px;
+	left: 8px;
+	right: 8px;
+	pointer-events: none;
+}
+
+.miniLocation {
+	display: inline-block;
+	background: var(--nts-black);
+	font-weight: bold;
+	font-size: 11px;
+	text-transform: uppercase;
+	padding: 2px 5px 1px;
+	margin-bottom: 6px;
+}
+
+.miniLocation:empty {
+	display: none;
+}
+
+.miniName {
+	background: var(--nts-black);
+	font-size: 17px;
+	line-height: 1.35;
+	font-weight: bold;
+	text-transform: uppercase;
+	padding: 3px 7px;
+	/* Each wrapped line gets its own black box rather than one ragged block. */
+	box-decoration-break: clone;
+	-webkit-box-decoration-break: clone;
+}
+
+/* The original was a popup that closed on blur, so it needed neither of these.
+   A window does. Kept small, and out of the artwork's way. */
+.miniWindowControls {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	display: flex;
+	gap: 2px;
+	-webkit-app-region: no-drag;
+}
+
+.miniIcon {
+	appearance: none;
+	width: 24px;
+	height: 24px;
+	border: none;
+	background: var(--nts-black);
+	color: var(--nts-text-dim);
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	cursor: pointer;
-	-webkit-app-region: no-drag;
 }
 
-.miniPlay:hover {
-	background: var(--nts-hover-bg);
+.miniIcon:hover {
+	color: var(--nts-text);
+}
+
+.miniClose:hover {
+	background: var(--nts-red);
+	color: var(--nts-text);
 }
 
 /* Casting. The menu opens upward because the button lives in the bottom bar. */

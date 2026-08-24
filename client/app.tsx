@@ -318,13 +318,13 @@ export function NTS() {
 	}, [])
 
 	const handleMenu = useCallback(function (action: MenuAction) {
-		// The window is the thing being changed, so it goes down the window
-		// channel rather than being treated as an ordinary menu command.
-		if (action === "mini") {
-			electron.send("window", "mini")
-			return
-		}
 		electron.send(action)
+	}, [])
+
+	// The window is the thing being changed, so this goes down the window
+	// channel rather than being treated as an ordinary menu command.
+	const toggleMini = useCallback(function () {
+		electron.send("window", "mini")
 	}, [])
 
 	// The main process owns whether the window is small, since it is the thing
@@ -334,10 +334,6 @@ export function NTS() {
 		return electron.addListener("mini", function (_evt: Event, on: boolean) {
 			setMini(on)
 		})
-	}, [])
-
-	const leaveMini = useCallback(function () {
-		electron.send("window", "mini")
 	}, [])
 
 	const handleWindow = useCallback(function (action: WindowAction) {
@@ -465,6 +461,7 @@ export function NTS() {
 					description: "",
 					genres: [],
 					moods: [],
+					location: "",
 					showAlias: "",
 					starts: null,
 					ends: null,
@@ -479,6 +476,7 @@ export function NTS() {
 					description: mixtape?.description ?? "",
 					genres: [],
 					moods: [],
+					location: "",
 					showAlias: "",
 					starts: null,
 					ends: null,
@@ -496,6 +494,7 @@ export function NTS() {
 				description: show?.description ?? "",
 				genres: show?.genres ?? [],
 				moods: show?.moods ?? [],
+				location: show?.location ?? "",
 				showAlias: show?.showAlias ?? "",
 				starts: show?.starts ?? null,
 				ends: show?.ends ?? null,
@@ -556,7 +555,12 @@ export function NTS() {
 			    the search, the scroll position and everything else the moment
 			    someone shrank the window. */}
 			<div className={classnames(css.shell, { [css.hidden]: mini })}>
-				<TitleBar onAction={handleMenu} onWindow={handleWindow} update={update} />
+				<TitleBar
+					onAction={handleMenu}
+					onWindow={handleWindow}
+					onMini={toggleMini}
+					update={update}
+				/>
 				<Nav view={view} onView={setView} hasArchive={Boolean(show)} />
 				<main className={css.content}>
 					{view === "live" ? (
@@ -694,10 +698,11 @@ export function NTS() {
 			{mini ? (
 				<MiniPlayer
 					now={now}
+					source={active}
 					status={displayStatus}
 					playing={Boolean(active)}
 					onToggle={toggle}
-					onExpand={leaveMini}
+					onExpand={toggleMini}
 					onClose={() => handleWindow("close")}
 				/>
 			) : null}

@@ -530,9 +530,11 @@ function makeAppMenu(): Menu {
 
 // The mini player's size, and the full window's floor. The floor has to be
 // lowered before the window can shrink past it, so both live here.
-const MINI_WIDTH = 380
-// 88px of square artwork plus 12px of padding top and bottom.
-const MINI_HEIGHT = 112
+// The original popup's exact dimensions. The layout is a reconstruction of it,
+// and the proportions are part of the look: artwork fills the window, so a
+// different aspect ratio crops it differently.
+const MINI_WIDTH = 360
+const MINI_HEIGHT = 270
 const MAIN_MIN_WIDTH = 880
 const MAIN_MIN_HEIGHT = 560
 

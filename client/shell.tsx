@@ -16,6 +16,7 @@ import {
 	sortResults,
 } from "./lib/search"
 import { type StreamHealth, type StreamProbe, smooth } from "./lib/stream-info"
+import { PlayButton } from "./play"
 import type { PlayerStatus } from "./player"
 
 import css from "./shell.module.css"
@@ -41,7 +42,6 @@ export type MenuAction =
 	| "report-problem"
 	| "open-releases"
 	| "open-logs"
-	| "mini"
 export type WindowAction = "minimize" | "maximize" | "close" | "mini"
 
 // Everything both the bottom bar and the full-screen view need to render.
@@ -52,6 +52,9 @@ export type NowPlaying = {
 	description: string
 	genres: string[]
 	moods: string[]
+	// Where the show is broadcast from. Empty for mixtapes and when idle. The
+	// mini player prints it on its own, the way the original did.
+	location: string
 	// Empty for mixtapes, which have no show page.
 	showAlias: string
 	starts: Date | null
@@ -80,13 +83,14 @@ function time(date: Date): string {
 }
 
 type TitleBarProps = {
+	onMini: () => void
 	onAction: (action: MenuAction) => void
 	onWindow: (action: WindowAction) => void
 	update: UpdateState | null
 }
 
 export function TitleBar(props: TitleBarProps) {
-	const { onAction, onWindow, update } = props
+	const { onAction, onWindow, onMini, update } = props
 	const [open, setOpen] = useState(false)
 	const menu = useRef<HTMLDivElement | null>(null)
 
@@ -120,7 +124,6 @@ export function TitleBar(props: TitleBarProps) {
 	)
 
 	const items: Array<{ id: MenuAction; label: string }> = [
-		{ id: "mini", label: "Mini player" },
 		{ id: "explore", label: "Explore on NTS" },
 		{ id: "schedule", label: "Full schedule" },
 		{ id: "report-problem", label: "Report a problem" },
@@ -152,6 +155,7 @@ export function TitleBar(props: TitleBarProps) {
 					</svg>
 					{update?.newer ? <span className={css.updateDot} /> : null}
 				</button>
+
 				{open ? (
 					<div className={css.menu}>
 						{items.map(function (item) {
@@ -174,6 +178,27 @@ export function TitleBar(props: TitleBarProps) {
 					</div>
 				) : null}
 			</div>
+
+			<button
+				type="button"
+				className={css.iconButton}
+				aria-label="Mini player"
+				title="Mini player"
+				onClick={onMini}
+			>
+				<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+					<rect
+						x="1.5"
+						y="3"
+						width="13"
+						height="10"
+						stroke="currentColor"
+						strokeWidth="1.2"
+						fill="none"
+					/>
+					<rect x="7.5" y="7.5" width="5.5" height="4" fill="currentColor" />
+				</svg>
+			</button>
 
 			<div className={css.drag} />
 
@@ -1556,6 +1581,7 @@ export function CastButton(props: CastButtonProps) {
 
 type MiniProps = {
 	now: NowPlaying
+	source: Source | null
 	status: PlayerStatus
 	playing: boolean
 	onToggle: () => void
@@ -1563,87 +1589,104 @@ type MiniProps = {
 	onClose: () => void
 }
 
+function miniTime(date: Date | null): string {
+	if (!date) {
+		return ""
+	}
+	return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+}
+
 /**
- * The whole app in a strip, for when the radio is background listening.
+ * The player this project started as.
  *
- * This is the shape the project started as: a small window that sits over the
- * work rather than being the work. Everything here is deliberately the minimum
- * that still answers the two questions the mode exists for, what is on and how
- * to stop it, plus the way back out.
+ * Deliberately a reconstruction of the original popup rather than a shrunken
+ * version of the main window: full bleed artwork with the show printed over it,
+ * the channel number in a white square that turns into a play button under the
+ * cursor, and the whole header inverting while it is playing. That look is the
+ * best thing the app inherited and it does not survive being made generic.
  *
- * The strip is the drag handle. There is no title bar in this mode, so without
- * that the window could not be moved at all, and no close button would leave no
- * way out of it on Windows.
+ * Two things the original did not need. It was a menubar popup that closed when
+ * it lost focus, so it had no way back and no close button; this is a window,
+ * so it needs both, kept small and out of the artwork's way.
+ *
+ * The strip is the drag handle, since this mode has no title bar.
  */
 export function MiniPlayer(props: MiniProps) {
-	const { now, status, playing, onToggle, onExpand, onClose } = props
+	const { now, source, status, playing, onToggle, onExpand, onClose } = props
+
+	// The original always had a channel number to print. A mixtape has none, so
+	// it gets the play control on its own rather than a made-up digit.
+	const channel = source?.kind === "channel" ? String(source.id) : ""
+	const times =
+		now.starts && now.ends ? `${miniTime(now.starts)} – ${miniTime(now.ends)}` : ""
 
 	return (
-		<div className={css.mini}>
-			<div
-				className={css.miniArt}
-				style={now.image ? { backgroundImage: `url(${now.image})` } : undefined}
-			/>
-
-			<div className={css.miniText}>
-				<div className={css.miniTitle}>{now.title}</div>
-				<div className={css.miniSub}>
-					<StatusDot status={status} />
-					{now.subtitle || STATUS_LABEL[status]}
-				</div>
-			</div>
+		<div className={classnames(css.mini, { [css.miniPlaying]: playing })}>
+			{now.image ? (
+				<img src={now.image} className={css.miniImage} alt="" draggable={false} />
+			) : (
+				<div className={css.miniImage} />
+			)}
 
 			<button
 				type="button"
-				className={css.miniPlay}
+				className={css.miniHeader}
 				onClick={onToggle}
 				aria-label={playing ? "Stop" : "Play"}
-				title={playing ? "Stop" : "Play"}
 			>
-				{playing ? (
-					<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
-						<rect x="3" y="3" width="10" height="10" fill="currentColor" />
-					</svg>
-				) : (
-					<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
-						<path d="M4 3l9 5-9 5z" fill="currentColor" />
-					</svg>
-				)}
+				<div className={classnames(css.miniCh, { [css.miniChBare]: !channel })}>
+					{channel}
+					<PlayButton playing={playing} className={css.miniPlayGlyph} />
+				</div>
+				<div>
+					<div className={css.miniLive}>
+						{status === "playing" ? "Live Now" : STATUS_LABEL[status]}
+						<span className={css.miniDot}>●</span>
+					</div>
+					<div>{times}</div>
+				</div>
 			</button>
 
-			<button
-				type="button"
-				className={css.iconButton}
-				onClick={onExpand}
-				aria-label="Back to the full window"
-				title="Back to the full window"
-			>
-				<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
-					<path
-						d="M6 2H2v4M10 14h4v-4"
-						stroke="currentColor"
-						strokeWidth="1.4"
-						fill="none"
-					/>
-				</svg>
-			</button>
+			<div className={css.miniWindowControls}>
+				<button
+					type="button"
+					className={css.miniIcon}
+					onClick={onExpand}
+					aria-label="Back to the full window"
+					title="Back to the full window"
+				>
+					<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
+						<path
+							d="M6 2H2v4M10 14h4v-4"
+							stroke="currentColor"
+							strokeWidth="1.6"
+							fill="none"
+						/>
+					</svg>
+				</button>
+				<button
+					type="button"
+					className={classnames(css.miniIcon, css.miniClose)}
+					onClick={onClose}
+					aria-label="Close"
+					title="Close"
+				>
+					<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+						<path
+							d="M2 2l8 8M10 2l-8 8"
+							stroke="currentColor"
+							strokeWidth="1.5"
+							fill="none"
+						/>
+					</svg>
+				</button>
+			</div>
 
-			<button
-				type="button"
-				className={classnames(css.iconButton, css.closeButton)}
-				onClick={onClose}
-				aria-label="Close"
-				title="Close"
-			>
-				<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-					<path
-						d="M2 2l8 8M10 2l-8 8"
-						stroke="currentColor"
-						strokeWidth="1.3"
-						fill="none"
-					/>
-				</svg>
-			</button>
+			<div className={css.miniFooter}>
+				<div className={css.miniLocation}>{now.location}</div>
+				<br />
+				<span className={css.miniName}>{now.title}</span>
+			</div>
 		</div>
 	)
 }
