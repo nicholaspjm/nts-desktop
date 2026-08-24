@@ -119,6 +119,10 @@ export function NTS() {
 	// were the same thing, so opening a second show to read its details tore down
 	// the player that was mid-way through the first.
 	const [playingShow, setPlayingShow] = useState<ArchiveShow | null>(null)
+	// What the transport should pick up again after a stop. Survives stopping,
+	// which is the whole point: stop then play should resume, not start
+	// something else. "archive" stands for whatever playingShow holds.
+	const [lastPlayed, setLastPlayed] = useState<Source | "archive" | null>(null)
 	const [position, setPosition] = useState(0)
 	// Reported by the embedded players once they are ready. Zero means nothing is
 	// loaded yet, which is what the scrub bar keys off.
@@ -201,6 +205,7 @@ export function NTS() {
 			setPosition(0)
 			setDuration(0)
 			setActive(source)
+			setLastPlayed(source)
 		},
 		[isOffline],
 	)
@@ -225,9 +230,24 @@ export function NTS() {
 				stop()
 				return
 			}
+
+			// Nothing is playing, so this is a resume. Starting channel 1 whatever
+			// had been stopped made the button destructive: stop and play were not
+			// each other's opposite.
+			if (lastPlayed === "archive" && playingShow) {
+				setArchiveLive(false)
+				setArchivePlaying(true)
+				return
+			}
+			if (lastPlayed && lastPlayed !== "archive") {
+				play(lastPlayed)
+				return
+			}
+
+			// Nothing has played yet this session.
 			play({ kind: "channel", id: 1 })
 		},
-		[active, archivePlaying, play, stop],
+		[active, archivePlaying, lastPlayed, play, playingShow, stop],
 	)
 
 	const toggleChannel = useCallback(
@@ -580,6 +600,7 @@ export function NTS() {
 			setLooped(0)
 			setArchiveLive(false)
 			setArchivePlaying(true)
+			setLastPlayed("archive")
 		},
 		[show, viewingPlayingShow],
 	)
