@@ -122,6 +122,10 @@ seconds, so a stutter has to last a long time to be audible. Both are the same
 - Archive search and playback, including pasting an `nts.live` show link
 - Show detail before you play, listening history, and Open on NTS
 - Media keys, a sleep timer that fades out, and output device selection
+- A mini player, the small window this project started as, from the button next
+  to the menu or by pressing N
+- Keyboard throughout: space plays, 1 and 2 pick a channel, M mutes, F fills the
+  screen, Escape backs out, and + and - or the arrows set the volume
 - Chromecast, from its own button in the bottom bar. The device fetches the
   stream itself rather than being fed audio from here, so nothing is re-encoded
   and playback carries on once the laptop is shut. Volume and mute are sent to

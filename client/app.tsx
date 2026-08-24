@@ -323,10 +323,6 @@ export function NTS() {
 
 	// The window is the thing being changed, so this goes down the window
 	// channel rather than being treated as an ordinary menu command.
-	const toggleMini = useCallback(function () {
-		electron.send("window", "mini")
-	}, [])
-
 	// The main process owns whether the window is small, since it is the thing
 	// doing the resizing. This just follows.
 	const [mini, setMini] = useState(false)
@@ -335,6 +331,35 @@ export function NTS() {
 			setMini(on)
 		})
 	}, [])
+
+	const toggleMini = useCallback(function () {
+		electron.send("window", "mini")
+	}, [])
+
+	useKeydown("m", () => setMuted((x) => !x))
+	useKeydown("f", () => setIsFullScreen((x) => !x))
+	useKeydown("n", toggleMini, [toggleMini])
+
+	// One way back out of every mode, in the order they sit on top of each
+	// other. The shell is hidden behind the mini player, so anything open in it
+	// is unreachable until that closes.
+	useKeydown(
+		"Escape",
+		function () {
+			if (mini) {
+				toggleMini()
+				return
+			}
+			if (isShowingHelp) {
+				setIsShowingHelp(false)
+				return
+			}
+			if (isFullScreen) {
+				setIsFullScreen(false)
+			}
+		},
+		[mini, isShowingHelp, isFullScreen, toggleMini],
+	)
 
 	const handleWindow = useCallback(function (action: WindowAction) {
 		electron.send("window", action)

@@ -22,6 +22,9 @@ export function Help(props: Props) {
 			</p>
 			<p>
 				Use + and - or the up and down arrows to change the volume.
+				<br />M mutes, F fills the screen, N shrinks to the mini player.
+				<br />
+				Escape backs out of whichever of those you are in.
 				<br />
 				Ctrl + N shows the window from anywhere.
 			</p>
