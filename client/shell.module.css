@@ -864,6 +864,78 @@
 	display: none;
 }
 
+/* Mini player. The whole strip drags, since this mode has no title bar. */
+
+.mini {
+	position: fixed;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 12px 10px;
+	background: var(--nts-panel);
+	border: 1px solid var(--nts-line);
+	color: var(--nts-text);
+	-webkit-app-region: drag;
+}
+
+.miniArt {
+	flex: none;
+	/* Square, because NTS artwork is square and stretching it to the strip's
+	   height would crop the show art rather than show it. */
+	width: 88px;
+	height: 88px;
+	background: var(--nts-surface) center / cover no-repeat;
+}
+
+.miniText {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.miniTitle {
+	font-size: 13px;
+	line-height: 1.25;
+	/* Two lines, because a show title truncated to one is often just the host. */
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.miniSub {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 11px;
+	color: var(--nts-text-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.miniPlay {
+	flex: none;
+	appearance: none;
+	width: 34px;
+	height: 34px;
+	border: 1px solid var(--nts-line-strong);
+	background: none;
+	color: var(--nts-text);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	-webkit-app-region: no-drag;
+}
+
+.miniPlay:hover {
+	background: var(--nts-hover-bg);
+}
+
 /* Casting. The menu opens upward because the button lives in the bottom bar. */
 
 .castWrap {

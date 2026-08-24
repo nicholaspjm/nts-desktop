@@ -1,3 +1,4 @@
+import classnames from "classnames"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import "./global.css"
@@ -46,6 +47,7 @@ import {
 	HistoryView,
 	LiveView,
 	type MenuAction,
+	MiniPlayer,
 	MixtapeDetail,
 	MixtapesView,
 	Nav,
@@ -316,7 +318,26 @@ export function NTS() {
 	}, [])
 
 	const handleMenu = useCallback(function (action: MenuAction) {
+		// The window is the thing being changed, so it goes down the window
+		// channel rather than being treated as an ordinary menu command.
+		if (action === "mini") {
+			electron.send("window", "mini")
+			return
+		}
 		electron.send(action)
+	}, [])
+
+	// The main process owns whether the window is small, since it is the thing
+	// doing the resizing. This just follows.
+	const [mini, setMini] = useState(false)
+	useEffect(function () {
+		return electron.addListener("mini", function (_evt: Event, on: boolean) {
+			setMini(on)
+		})
+	}, [])
+
+	const leaveMini = useCallback(function () {
+		electron.send("window", "mini")
 	}, [])
 
 	const handleWindow = useCallback(function (action: WindowAction) {
@@ -530,7 +551,11 @@ export function NTS() {
 	return (
 		<>
 			<Splash hide={!live.loading} />
-			<div className={css.shell}>
+			{/* Hidden rather than unmounted. The mini player is a different view of
+			    the same session, and tearing the shell down would drop the schedule,
+			    the search, the scroll position and everything else the moment
+			    someone shrank the window. */}
+			<div className={classnames(css.shell, { [css.hidden]: mini })}>
 				<TitleBar onAction={handleMenu} onWindow={handleWindow} update={update} />
 				<Nav view={view} onView={setView} hasArchive={Boolean(show)} />
 				<main className={css.content}>
@@ -663,6 +688,17 @@ export function NTS() {
 						electron.send("open-external", `https://www.nts.live/shows/${alias}`)
 					}
 					onClose={() => setIsFullScreen(false)}
+				/>
+			) : null}
+
+			{mini ? (
+				<MiniPlayer
+					now={now}
+					status={displayStatus}
+					playing={Boolean(active)}
+					onToggle={toggle}
+					onExpand={leaveMini}
+					onClose={() => handleWindow("close")}
 				/>
 			) : null}
 

@@ -47,6 +47,9 @@ export class NTSApplication {
 	liveTracks: NTSLiveTracks
 	castDiscovery: CastDiscovery
 	castSession: CastSession | null = null
+	// Bounds to put back when leaving the mini player, and whether it is on.
+	mini = false
+	private normalBounds: Electron.Rectangle | null = null
 
 	constructor(production: boolean) {
 		this.window = makeWindow()
@@ -109,6 +112,10 @@ export class NTSApplication {
 			}
 			if (action === "close") {
 				this.close()
+				return
+			}
+			if (action === "mini") {
+				this.toggleMini()
 			}
 		})
 
@@ -310,6 +317,58 @@ export class NTSApplication {
 		this.castSession = null
 	}
 
+	/**
+	 * Shrinks to a small always-on-top strip, and back.
+	 *
+	 * The app this grew out of was a 360x270 popup, and that shape is genuinely
+	 * better when the radio is background listening rather than the thing being
+	 * looked at. It is a mode rather than a replacement: the full window is still
+	 * one click away, and its size and position are put back exactly.
+	 *
+	 * The main process owns this rather than the renderer, because the window is
+	 * the thing being changed and two sources of truth for "is it small" would
+	 * drift the moment either side missed a message.
+	 */
+	toggleMini(): void {
+		this.mini = !this.mini
+
+		if (this.mini) {
+			this.normalBounds = this.window.getBounds()
+
+			// The floor has to come down before the size can, or setBounds is
+			// silently clamped to the full window's minimum and nothing happens.
+			this.window.setMinimumSize(MINI_WIDTH, MINI_HEIGHT)
+			this.window.setResizable(false)
+			this.window.setMaximizable(false)
+
+			// Keep it near where the window was rather than jumping to a corner,
+			// while making sure it stays on a screen the user can actually see.
+			const previous = this.normalBounds
+			this.window.setBounds({
+				x: previous.x,
+				y: previous.y,
+				width: MINI_WIDTH,
+				height: MINI_HEIGHT,
+			})
+
+			// The point of a mini player is that it stays visible over the work
+			// being done, which is exactly what the popup did.
+			this.window.setAlwaysOnTop(true, "floating")
+		} else {
+			this.window.setAlwaysOnTop(false)
+			this.window.setResizable(true)
+			this.window.setMaximizable(true)
+			this.window.setMinimumSize(MAIN_MIN_WIDTH, MAIN_MIN_HEIGHT)
+
+			if (this.normalBounds) {
+				this.window.setBounds(this.normalBounds)
+				this.normalBounds = null
+			}
+		}
+
+		this.send("mini", this.mini)
+	}
+
 	close() {
 		this.window.webContents.send("close")
 		setTimeout(() => this.window.hide(), 10)
@@ -469,14 +528,22 @@ function makeAppMenu(): Menu {
 	])
 }
 
+// The mini player's size, and the full window's floor. The floor has to be
+// lowered before the window can shrink past it, so both live here.
+const MINI_WIDTH = 380
+// 88px of square artwork plus 12px of padding top and bottom.
+const MINI_HEIGHT = 112
+const MAIN_MIN_WIDTH = 880
+const MAIN_MIN_HEIGHT = 560
+
 function makeWindow(): BrowserWindow {
 	// A normal application window, not the old 360x270 frameless popup that was
 	// pinned to a screen corner and vanished the moment it lost focus.
 	const window = new BrowserWindow({
 		width: 1100,
 		height: 720,
-		minWidth: 880,
-		minHeight: 560,
+		minWidth: MAIN_MIN_WIDTH,
+		minHeight: MAIN_MIN_HEIGHT,
 		show: false,
 		// Chromeless. On macOS keep the frame so the traffic lights survive and
 		// inset them into our own title bar; elsewhere draw the controls ourselves.

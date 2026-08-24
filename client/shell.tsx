@@ -41,7 +41,8 @@ export type MenuAction =
 	| "report-problem"
 	| "open-releases"
 	| "open-logs"
-export type WindowAction = "minimize" | "maximize" | "close"
+	| "mini"
+export type WindowAction = "minimize" | "maximize" | "close" | "mini"
 
 // Everything both the bottom bar and the full-screen view need to render.
 export type NowPlaying = {
@@ -119,6 +120,7 @@ export function TitleBar(props: TitleBarProps) {
 	)
 
 	const items: Array<{ id: MenuAction; label: string }> = [
+		{ id: "mini", label: "Mini player" },
 		{ id: "explore", label: "Explore on NTS" },
 		{ id: "schedule", label: "Full schedule" },
 		{ id: "report-problem", label: "Report a problem" },
@@ -1548,6 +1550,100 @@ export function CastButton(props: CastButtonProps) {
 					</div>
 				</div>
 			) : null}
+		</div>
+	)
+}
+
+type MiniProps = {
+	now: NowPlaying
+	status: PlayerStatus
+	playing: boolean
+	onToggle: () => void
+	onExpand: () => void
+	onClose: () => void
+}
+
+/**
+ * The whole app in a strip, for when the radio is background listening.
+ *
+ * This is the shape the project started as: a small window that sits over the
+ * work rather than being the work. Everything here is deliberately the minimum
+ * that still answers the two questions the mode exists for, what is on and how
+ * to stop it, plus the way back out.
+ *
+ * The strip is the drag handle. There is no title bar in this mode, so without
+ * that the window could not be moved at all, and no close button would leave no
+ * way out of it on Windows.
+ */
+export function MiniPlayer(props: MiniProps) {
+	const { now, status, playing, onToggle, onExpand, onClose } = props
+
+	return (
+		<div className={css.mini}>
+			<div
+				className={css.miniArt}
+				style={now.image ? { backgroundImage: `url(${now.image})` } : undefined}
+			/>
+
+			<div className={css.miniText}>
+				<div className={css.miniTitle}>{now.title}</div>
+				<div className={css.miniSub}>
+					<StatusDot status={status} />
+					{now.subtitle || STATUS_LABEL[status]}
+				</div>
+			</div>
+
+			<button
+				type="button"
+				className={css.miniPlay}
+				onClick={onToggle}
+				aria-label={playing ? "Stop" : "Play"}
+				title={playing ? "Stop" : "Play"}
+			>
+				{playing ? (
+					<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+						<rect x="3" y="3" width="10" height="10" fill="currentColor" />
+					</svg>
+				) : (
+					<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+						<path d="M4 3l9 5-9 5z" fill="currentColor" />
+					</svg>
+				)}
+			</button>
+
+			<button
+				type="button"
+				className={css.iconButton}
+				onClick={onExpand}
+				aria-label="Back to the full window"
+				title="Back to the full window"
+			>
+				<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+					<path
+						d="M6 2H2v4M10 14h4v-4"
+						stroke="currentColor"
+						strokeWidth="1.4"
+						fill="none"
+					/>
+				</svg>
+			</button>
+
+			<button
+				type="button"
+				className={classnames(css.iconButton, css.closeButton)}
+				onClick={onClose}
+				aria-label="Close"
+				title="Close"
+			>
+				<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+					<path
+						d="M2 2l8 8M10 2l-8 8"
+						stroke="currentColor"
+						strokeWidth="1.3"
+						fill="none"
+					/>
+				</svg>
+			</button>
 		</div>
 	)
 }
