@@ -462,6 +462,21 @@ export function NTS() {
 
 	useAudioOutput(audioEl, preferences.outputDevice)
 
+	// The embedded players are cross-origin, so the renderer cannot route them.
+	// The main process can, and is asked to whenever the choice or the show
+	// changes. Sending on both is deliberate: a device chosen mid-show has to
+	// reach the player that is already running, and a show started later has to
+	// pick up the choice already made.
+	useEffect(
+		function () {
+			if (!playingShow) {
+				return
+			}
+			electron.send("frame-output", preferences.outputDevice)
+		},
+		[preferences.outputDevice, playingShow],
+	)
+
 	const forgetOutputDevice = useCallback(
 		function () {
 			updatePreferences((prefs) => ({ ...prefs, outputDevice: "" }))
@@ -760,7 +775,6 @@ export function NTS() {
 					outputDevice={preferences.outputDevice}
 					onOutputDevice={setOutputDevice}
 					onRefreshOutputs={refreshOutputs}
-					outputBypassed={Boolean(playingShow) && !active}
 					castDevices={castDevices}
 					castTarget={castTarget}
 					castingNow={casting}

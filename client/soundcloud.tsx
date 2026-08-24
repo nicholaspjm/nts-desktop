@@ -164,7 +164,10 @@ export function Soundcloud(props: Props) {
 		<iframe
 			ref={ref}
 			src={`https://w.soundcloud.com/player/?url=${feed}`}
-			allow="autoplay"
+			// speaker-selection lets this frame's own audio be routed to a chosen
+			// device. The parent grants it; SoundCloud does not have to cooperate,
+			// and without it the routing below silently does nothing.
+			allow="autoplay; speaker-selection"
 			className={css.frame}
 		/>
 	)

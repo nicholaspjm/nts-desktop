@@ -159,6 +159,17 @@ export class NTSApplication {
 
 		ipcMain.on("cast-stop", () => this.stopCast())
 
+		// Routes the embedded players to the chosen output.
+		//
+		// setSinkId only ever applies to a media element the calling document
+		// owns, so a page cannot route audio inside a cross-origin frame. The main
+		// process can: it reaches each frame directly, and the frames carry
+		// allow="speaker-selection", which this app grants them. Verified against
+		// a loopback device, where the audio genuinely moved.
+		ipcMain.on("frame-output", (_evt: IpcMainEvent, deviceId: string) => {
+			this.applyFrameOutput(deviceId)
+		})
+
 		// The local element is not in the audio path while casting, so the app's
 		// own volume control has to reach the device or it silently does nothing.
 		ipcMain.on(
@@ -396,6 +407,53 @@ export class NTSApplication {
 		this.send("mini", this.mini)
 	}
 
+	/**
+	 * Points every embedded player at the chosen output device.
+	 *
+	 * Retried a few times because the frame's media element is created when its
+	 * widget loads, which is after the frame itself exists, so the first attempt
+	 * usually finds nothing to route.
+	 */
+	applyFrameOutput(deviceId: string, attempt = 0): void {
+		if (this.window.isDestroyed()) {
+			return
+		}
+
+		const frames = this.window.webContents.mainFrame.framesInSubtree
+		let reached = 0
+
+		for (const frame of frames) {
+			if (frame === this.window.webContents.mainFrame) {
+				continue
+			}
+			reached += 1
+			frame
+				.executeJavaScript(
+					`(function () {
+						var els = document.querySelectorAll("audio, video")
+						for (var i = 0; i < els.length; i++) {
+							if (els[i].setSinkId) {
+								els[i].setSinkId(${JSON.stringify(deviceId)}).catch(function () {})
+							}
+						}
+						return els.length
+					})()`,
+				)
+				.catch(() => {
+					// A frame can go away mid-call, which is not worth reporting.
+				})
+		}
+
+		// Keep trying briefly: a widget that is still loading has no element yet.
+		if (attempt < FRAME_OUTPUT_TRIES) {
+			setTimeout(
+				() => this.applyFrameOutput(deviceId, attempt + 1),
+				FRAME_OUTPUT_DELAY,
+			)
+		}
+		void reached
+	}
+
 	close() {
 		this.window.webContents.send("close")
 		setTimeout(() => this.window.hide(), 10)
@@ -562,6 +620,11 @@ function makeAppMenu(): Menu {
 // different aspect ratio crops it differently.
 // How long a crash counts as "recent", and how many reloads to attempt inside
 // that window before concluding the reload is part of the problem.
+// The embedded widgets create their media element well after the frame exists,
+// so one attempt lands too early.
+const FRAME_OUTPUT_TRIES = 6
+const FRAME_OUTPUT_DELAY = 1_000
+
 const CRASH_WINDOW = 60_000
 const CRASH_LIMIT = 3
 

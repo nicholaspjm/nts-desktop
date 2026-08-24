@@ -121,10 +121,10 @@ seconds, so a stutter has to last a long time to be audible. Both are the same
 - The full 18 slot schedule for both channels
 - Archive search and playback, including pasting an `nts.live` show link
 - Show detail before you play, listening history, and Open on NTS
-- Media keys, a sleep timer that fades out, and output device selection. The
-  output choice reaches the live channels and the mixtapes; recorded shows play
-  inside SoundCloud's or Mixcloud's own player and always use the system
-  default, which no page is able to change
+- Media keys, a sleep timer that fades out, and output device selection, which
+  reaches recorded shows as well as the live channels. Those play inside
+  SoundCloud's or Mixcloud's own frame, which no page can route, so the main
+  process does it instead
 - A mini player, the small window this project started as, from the button next
   to the menu or by pressing N
 - Keyboard throughout: space plays, 1 and 2 pick a channel, M mutes, F fills the

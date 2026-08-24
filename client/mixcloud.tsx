@@ -124,6 +124,10 @@ export function Mixcloud(props: Props) {
 		<iframe
 			ref={ref}
 			src={`https://www.mixcloud.com/widget/iframe/?hide_cover=1&mini=1&feed=${feed}`}
+			// speaker-selection lets this frame's own audio be routed to a chosen
+			// device. The parent grants it; Mixcloud does not have to cooperate,
+			// and without it the routing silently does nothing.
+			allow="autoplay; speaker-selection"
 			className={css.frame}
 		/>
 	)
