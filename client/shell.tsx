@@ -427,9 +427,13 @@ type TagsProps = {
 /**
  * Genres and moods, rendered the same way wherever they appear.
  *
- * The live channel card and the full screen view had grown their own copies of
- * this, with different caps and only one of them showing moods at all, so the
- * same show described itself differently depending on where you looked at it.
+ * The full screen view and the live card had grown their own copies of this,
+ * with different caps and only one of them showing moods at all, so the same
+ * show described itself differently depending on where you looked at it.
+ *
+ * Not used on the live cards any more: those already carry a description and
+ * the times, and the tags pushed the play controls down for information nobody
+ * is reading while deciding whether to press play.
  *
  * Moods are dimmer than genres on purpose. A genre says what the music is and
  * is worth reading; a mood is NTS's own editorial framing and is closer to a
@@ -483,9 +487,6 @@ export function ChannelCard(props: ChannelCardProps) {
 					) : null}
 				</div>
 				{now?.description ? <p className={css.cardDesc}>{now.description}</p> : null}
-				{now ? (
-					<Tags genres={now.genres} moods={now.moods} maxGenres={4} maxMoods={2} />
-				) : null}
 				<div className={css.cardActions}>
 					<button
 						type="button"
