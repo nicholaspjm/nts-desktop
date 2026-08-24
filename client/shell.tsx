@@ -1211,7 +1211,13 @@ export function ArchiveView(props: ArchiveProps) {
 								{`- ${SKIP}s`}
 							</button>
 
-							<span className={css.scrubTime}>{clock(position)}</span>
+							{/* A show that has not been played has no known length: the
+							    embedded player is what reports it, and it is not built until
+							    playback starts. Reading 0:00 / 0:00 made that look like a
+							    broken control rather than one waiting for a length. */}
+							<span className={css.scrubTime}>
+								{duration === 0 ? "--:--" : clock(position)}
+							</span>
 							<input
 								className={css.transportRange}
 								type="range"
@@ -1223,7 +1229,9 @@ export function ArchiveView(props: ArchiveProps) {
 								aria-label="Seek"
 								onChange={(e) => onSeek(Number(e.target.value))}
 							/>
-							<span className={css.scrubTime}>{clock(duration)}</span>
+							<span className={css.scrubTime}>
+								{duration === 0 ? "--:--" : clock(duration)}
+							</span>
 
 							<button
 								type="button"
