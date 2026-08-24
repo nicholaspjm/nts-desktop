@@ -193,7 +193,13 @@ export function NTS() {
 			if (isOffline) {
 				return
 			}
+			// The archive player's length and position belong to the show that was
+			// playing, and the scrub bar keys off the length. Left set, a live
+			// channel inherited a slider for something no longer playing.
 			setArchivePlaying(false)
+			setArchiveLive(false)
+			setPosition(0)
+			setDuration(0)
 			setActive(source)
 		},
 		[isOffline],

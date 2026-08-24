@@ -1121,6 +1121,15 @@ export function ArchiveView(props: ArchiveProps) {
 						>
 							{playing ? "Stop" : "Play"}
 						</button>
+						{show.url ? (
+							<button
+								type="button"
+								className={css.button}
+								onClick={() => onOriginal(show.url)}
+							>
+								Open on NTS
+							</button>
+						) : null}
 						{show.source?.url ? (
 							<button
 								type="button"
@@ -2280,7 +2289,11 @@ export function NowPlayingBar(props: BarProps) {
 			) : null}
 
 			<div className={css.barStream}>
-				<div className={css.barFormat}>{format ?? "No stream"}</div>
+				{/* A show from an embedded player has no stream to describe, and
+				    saying so is noise: that it is playing is already on screen. */}
+				{statusLabel ? null : (
+					<div className={css.barFormat}>{format ?? "No stream"}</div>
+				)}
 				<div className={css.barStreamSub}>
 					<StatusDot status={status} />
 					{statusLabel ?? STATUS_LABEL[status]}

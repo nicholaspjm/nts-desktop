@@ -21,6 +21,9 @@ export type Track = {
 export type SourceType = "mixcloud" | "soundcloud"
 
 export type ShowInfo = {
+	// The show's own page, kept so the app can offer to open it. Everything else
+	// here comes from the API, which does not include its own public URL.
+	url: string
 	name: string
 	date: Date
 	tracklist: Track[]
@@ -75,6 +78,9 @@ export async function show(url: string): Promise<ShowInfo> {
 	} = content
 
 	return {
+		// Normalised back to the public form: what arrives may be missing the
+		// scheme or the www, and this is handed straight to a browser.
+		url: url.replace(/^(https?:\/\/)?(www\.)?nts\.live\//, "https://www.nts.live/"),
 		name,
 		location: location_long,
 		image: background_large,
