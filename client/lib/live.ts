@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useEvent } from "./use-event"
 
+import { artwork } from "~/lib/media"
+
 export type ChannelInfo = {
 	now: ShowInfo
 	next: ShowInfo | null
@@ -144,7 +146,13 @@ function simplify(data: ShowData): ShowInfo {
 	return {
 		name,
 		location: details?.location_long ?? "",
-		image: details?.media?.background_large ?? "",
+		// The home card is 419px wide, so 628px on a 1.5x display. background_large
+		// is 1600x1600 and 135KB, which is most of why the home page artwork was
+		// slow to appear. 800 covers it, at 55KB. The same URL is reused by the
+		// now playing bar, the full screen art and the mini player, so one
+		// download serves all four rather than each sizing itself perfectly and
+		// fetching separately.
+		image: artwork(details?.media?.background_large, 800),
 		description: details?.description ?? "",
 		genres: tags(details?.genres),
 		moods: tags(details?.moods),

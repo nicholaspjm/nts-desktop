@@ -20,7 +20,38 @@ import { type StreamHealth, type StreamProbe, smooth } from "./lib/stream-info"
 import { PlayButton } from "./play"
 import type { PlayerStatus } from "./player"
 
+import { artwork } from "~/lib/media"
+
 import css from "./shell.module.css"
+
+/**
+ * The sharp banner with the small version painted underneath it.
+ *
+ * The detail banner is 847px wide, so it wants the 1600px image, and that takes
+ * about two seconds to arrive. The tile that was clicked to get here has already
+ * loaded the 400px version of the very same picture and it is still cached, so
+ * putting that underneath fills the space immediately and the sharp one replaces
+ * it the moment it lands. Earlier layers sit on top in CSS, so the large one is
+ * listed first.
+ */
+
+/**
+ * Full screen art at its sharpest, over whatever is already on screen.
+ *
+ * The live views deliberately fetch 800px artwork, which is right for a 419px
+ * home card but soft blown up to nearly half the height of a large display. So
+ * full screen asks for the 1600px one and lays the 800px one underneath, which
+ * is already cached from the card that was on screen a moment ago. The result
+ * fills immediately and sharpens rather than starting empty. When the source is
+ * already 1600 both layers are the same URL, which costs nothing.
+ */
+function fullArtLayers(url: string): string {
+	return `url(${artwork(url, 1600)}), url(${url})`
+}
+
+function artLayers(url: string): string {
+	return `url(${url}), url(${artwork(url, 400)})`
+}
 
 // What the single audio pipeline is pointed at.
 export type Source =
@@ -979,6 +1010,10 @@ export function MixtapeDetail(props: MixtapeDetailProps) {
 
 type ArchiveProps = {
 	show: ArchiveShow | null
+	// A show has been asked for and has not arrived yet. Distinct from show being
+	// null, because opening a second show while reading a first would otherwise
+	// leave the first one's details on screen looking like nothing happened.
+	loading: boolean
 	// Where opening this show came from, so the way back is the way in. The
 	// archive is only ever arrived at from somewhere else: a search result, an
 	// explore tile, or a pasted link.
@@ -1076,6 +1111,7 @@ function Tracklist(props: { tracks: ArchiveShow["tracklist"] }) {
 export function ArchiveView(props: ArchiveProps) {
 	const {
 		show,
+		loading,
 		playing,
 		starting,
 		position,
@@ -1086,6 +1122,21 @@ export function ArchiveView(props: ArchiveProps) {
 		backLabel,
 		onBack,
 	} = props
+
+	// Checked before the show, so opening a second show while reading a first
+	// replaces the details rather than leaving the old ones up. Keeping the way
+	// back available matters: waiting is exactly when someone changes their mind.
+	if (loading) {
+		return (
+			<>
+				<button type="button" className={css.backLink} onClick={onBack}>
+					← {backLabel}
+				</button>
+				<h1 className={css.heading}>Archive</h1>
+				<p className={css.empty}>Loading show…</p>
+			</>
+		)
+	}
 
 	if (!show) {
 		return <p className={css.empty}>No archive show loaded. Find one in Search.</p>
@@ -1100,7 +1151,7 @@ export function ArchiveView(props: ArchiveProps) {
 			<article className={css.card}>
 				<div
 					className={css.cardArt}
-					style={show.image ? { backgroundImage: `url(${show.image})` } : undefined}
+					style={show.image ? { backgroundImage: artLayers(show.image) } : undefined}
 				/>
 				<div className={css.cardBody}>
 					<h2 className={css.cardTitle}>{show.name}</h2>
@@ -1783,7 +1834,9 @@ export function FullScreen(props: FullProps) {
 			<div className={css.fullBody}>
 				<div
 					className={css.fullArt}
-					style={now.image ? { backgroundImage: `url(${now.image})` } : undefined}
+					style={
+						now.image ? { backgroundImage: fullArtLayers(now.image) } : undefined
+					}
 				/>
 				<div className={css.fullInfo}>
 					<div className={css.fullStatus}>

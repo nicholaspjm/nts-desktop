@@ -56,6 +56,8 @@ export class NTSApplication {
 	castSession: CastSession | null = null
 	// Bounds to put back when leaving the mini player, and whether it is on.
 	mini = false
+	// Bumped per open so a slow show cannot land after a newer one was asked for.
+	private openRequest = 0
 	// The label of the chosen output device. A label rather than an id because
 	// the players are cross-origin and ids do not survive that boundary.
 	private outputLabel = ""
@@ -538,9 +540,40 @@ export class NTSApplication {
 			return
 		}
 
-		const data = await show(url)
+		// Only the most recent request may deliver. Opening a show takes long
+		// enough to notice, which is long enough to click a second one, and
+		// without this the answer that arrives last wins rather than the one that
+		// was asked for last. That is not a rare race: a slower show reliably
+		// overwrites a faster one clicked after it, so the wrong show loads every
+		// time that pairing comes up.
+		this.openRequest += 1
+		const request = this.openRequest
+
+		// Told immediately so the click has a visible effect. The renderer cannot
+		// work this out for itself: the fetch happens here, and until now the only
+		// thing it ever heard about was the finished result.
+		this.send("opening-show", url)
+
+		let data: Awaited<ReturnType<typeof show>>
+		try {
+			data = await show(url)
+		} catch (err) {
+			if (request === this.openRequest) {
+				this.send("open-show-failed", url)
+				this.evts.emit("error", "That show could not be loaded")
+			}
+			return
+		}
+
+		if (request !== this.openRequest) {
+			return
+		}
+
+		// Deliberately after the staleness check. History is a record of what the
+		// user actually opened, and an abandoned show that lost the race was never
+		// looked at.
 		history.add({ name: data.name, kind: "archive", url })
-		this.window.webContents.send("open-show", data)
+		this.send("open-show", data)
 	}
 
 	async browse() {

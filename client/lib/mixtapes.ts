@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react"
 
+import { artwork } from "~/lib/media"
+
 // NTS "Infinite Mixtapes": continuous music-only streams built from resident and
 // guest shows. There are ~16 of them and the app previously had no support at
 // all, despite them being the same kind of stream as the live channels.
@@ -45,12 +47,15 @@ function simplify(data: MixtapeData): Mixtape {
 		title: data.title,
 		subtitle: data.subtitle,
 		description: data.description,
-		image:
+		// Left at 800: this one URL feeds both the 200px tile and the 300px detail
+		// art, which needs 450px, so shrinking it would soften the detail view to
+		// speed up a grid. Only the host is normalised.
+		image: artwork(
 			media.picture_medium_large ??
-			media.picture_large ??
-			media.picture_medium ??
-			media.picture_small ??
-			"",
+				media.picture_large ??
+				media.picture_medium ??
+				media.picture_small,
+		),
 		icon: media.icon_white ?? "",
 		stream: data.audio_stream_endpoint,
 		streamAac: data.audio_stream_endpoint_hls_aac ?? "",

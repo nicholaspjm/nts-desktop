@@ -1,5 +1,6 @@
 import fetch from "isomorphic-fetch"
 
+import { artwork } from "~/lib/media"
 import { type Tag, tags } from "~/lib/tags"
 
 /**
@@ -83,7 +84,11 @@ export async function show(url: string): Promise<ShowInfo> {
 		url: url.replace(/^(https?:\/\/)?(www\.)?nts\.live\//, "https://www.nts.live/"),
 		name,
 		location: location_long,
-		image: background_large,
+		// Kept large on purpose: the detail banner is 847px wide, so 1270px on a
+		// 1.5x display, and anything smaller is visibly soft. Only the host is
+		// normalised, which is what lets the tile that was clicked to get here
+		// supply an instant stand in while this loads.
+		image: artwork(background_large, 1600),
 		date: new Date(broadcast),
 		// Narrowed here rather than passed through, so the timings the API
 		// volunteers never cross into the app at all.

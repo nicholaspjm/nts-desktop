@@ -115,6 +115,10 @@ export function NTS() {
 	const [status, setStatus] = useState<PlayerStatus>("idle")
 
 	const [show, setShow] = useState<ArchiveShow | null>(null)
+	// The URL of a show that has been asked for but has not arrived. Held so the
+	// archive view can say it is working rather than sitting on the previous
+	// show's details, which read as the click having done nothing.
+	const [opening, setOpening] = useState<string | null>(null)
 	// The show being listened to, as opposed to the one being looked at. They
 	// were the same thing, so opening a second show to read its details tore down
 	// the player that was mid-way through the first.
@@ -357,14 +361,47 @@ export function NTS() {
 	const viewRef = useRef(view)
 	viewRef.current = view
 
+	// Same reason as viewRef: the open-show handler is registered once and would
+	// otherwise read whatever `opening` was on first render, which is always null.
+	const openingRef = useRef(opening)
+	openingRef.current = opening
+
+	// Opening a show only changes what is on screen. Nothing about playback is
+	// touched: whatever was playing keeps playing until something is actually
+	// asked to start, which is what lets you read one show while hearing another.
+	// Sent the moment the click is heard, before anything is fetched. Switching
+	// the view here rather than on arrival is what makes the click register: the
+	// tile the user came from is no longer on screen, so there is nothing to
+	// click a second time by mistake while the show loads.
+	useEvent("opening-show", function (url: string) {
+		const from = viewRef.current
+		setCameFrom((prev) => (from === "archive" ? prev : from))
+		setOpening(url)
+		setView("archive")
+	})
+
 	// Opening a show only changes what is on screen. Nothing about playback is
 	// touched: whatever was playing keeps playing until something is actually
 	// asked to start, which is what lets you read one show while hearing another.
 	useEvent("open-show", async function (next: ArchiveShow) {
 		const from = viewRef.current
 		setCameFrom((prev) => (from === "archive" ? prev : from))
+		// Whether the user is still waiting for this. Backing out of the loading
+		// screen clears it, and someone who has walked away should not be dragged
+		// back to a show they gave up on a moment later. The details are still
+		// kept, so the Archive tab has them if they want to look.
+		const wanted = openingRef.current !== null
+		setOpening(null)
 		setShow(next)
-		setView("archive")
+		if (wanted) {
+			setView("archive")
+		}
+	})
+
+	// The main process only reports a failure for the show still being waited on,
+	// so this cannot clear a load that has since been superseded.
+	useEvent("open-show-failed", function () {
+		setOpening(null)
 	})
 
 	// Opens the episode currently on air, falling back to the show's own page if
@@ -804,7 +841,11 @@ export function NTS() {
 					onStopCast={handleStopCast}
 					onRescanCast={rescanCast}
 				/>
-				<Nav view={view} onView={setView} hasArchive={Boolean(show)} />
+				<Nav
+					view={view}
+					onView={setView}
+					hasArchive={Boolean(show) || opening !== null}
+				/>
 				<main className={css.content}>
 					{view === "live" ? (
 						<LiveView
@@ -873,8 +914,12 @@ export function NTS() {
 					{view === "archive" ? (
 						<ArchiveView
 							show={show}
+							loading={opening !== null}
 							backLabel={BACK_LABELS[cameFrom]}
-							onBack={() => setView(cameFrom)}
+							onBack={() => {
+								setOpening(null)
+								setView(cameFrom)
+							}}
 							playing={archivePlaying && viewingPlayingShow}
 							starting={viewingPlayingShow && archivePlaying && !archiveLive}
 							position={viewingPlayingShow ? position : 0}

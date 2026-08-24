@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 
+import { artwork } from "~/lib/media"
 import { type Tag, tags } from "~/lib/tags"
 
 export type SearchResult = {
@@ -47,7 +48,12 @@ function simplify(raw: RawResult): SearchResult | null {
 		url: `https://www.nts.live${path}`,
 		date: raw.local_date ?? "",
 		location: raw.location ?? "",
-		image: image.medium_large ?? image.medium ?? image.large ?? image.small ?? "",
+		// Tiles are 200px square, so 300px on a 1.5x display. medium_large is
+		// 800x800 and 55KB each, and a grid holds twelve of them.
+		image: artwork(
+			image.medium_large ?? image.medium ?? image.large ?? image.small,
+			400,
+		),
 		genres: tags(raw.genres),
 		moods: tags(raw.moods),
 	}
