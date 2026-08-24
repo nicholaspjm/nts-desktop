@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 
+import { type Tag, tags } from "./tags"
+
 export type SearchResult = {
 	title: string
 	// Full nts.live URL, ready for the archive opener.
@@ -7,6 +9,10 @@ export type SearchResult = {
 	date: string
 	location: string
 	image: string
+	// The endpoint returns these already, so showing them costs no extra
+	// request. They were being parsed and thrown away.
+	genres: Tag[]
+	moods: Tag[]
 }
 
 export type SortOrder = "relevance" | "newest" | "oldest"
@@ -17,12 +23,16 @@ export type SearchState = {
 	error: boolean
 }
 
+type RawTag = { id?: string; name?: string }
+
 type RawResult = {
 	title?: string
 	local_date?: string
 	location?: string
 	article?: { path?: string }
 	image?: Record<string, string>
+	genres?: RawTag[]
+	moods?: RawTag[]
 }
 
 function simplify(raw: RawResult): SearchResult | null {
@@ -38,6 +48,8 @@ function simplify(raw: RawResult): SearchResult | null {
 		date: raw.local_date ?? "",
 		location: raw.location ?? "",
 		image: image.medium_large ?? image.medium ?? image.large ?? image.small ?? "",
+		genres: tags(raw.genres),
+		moods: tags(raw.moods),
 	}
 }
 

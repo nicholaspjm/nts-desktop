@@ -6,6 +6,7 @@ import logo from "../logos/nts.svg"
 import type { ShowInfo as ArchiveShow } from "../app/show"
 import type { CastDevice, CastStatus } from "./lib/cast"
 import type { HistoryEntry, UpdateState } from "./lib/controls"
+import type { ExploreFilters, ExploreState, Taxonomy } from "./lib/explore"
 import type { ChannelInfo, Info, ShowInfo } from "./lib/live"
 import type { Mixtape } from "./lib/mixtapes"
 import type { AudioOutput } from "./lib/outputs"
@@ -28,6 +29,7 @@ export type Source =
 
 export type View =
 	| "live"
+	| "explore"
 	| "mixtapes"
 	| "schedule"
 	| "search"
@@ -358,6 +360,7 @@ export function Nav(props: NavProps) {
 
 	const items: Array<{ id: View; label: string }> = [
 		{ id: "live", label: "Live" },
+		{ id: "explore", label: "Explore" },
 		{ id: "mixtapes", label: "Mixtapes" },
 		{ id: "schedule", label: "Schedule" },
 		{ id: "search", label: "Search" },
@@ -400,6 +403,61 @@ type ChannelCardProps = {
 	onOpenNTS: () => void
 }
 
+/** A genre or mood, as either a bare name or the API's own id and name pair. */
+export type TagLike = string | { id: string; name: string }
+
+function tagKey(tag: TagLike): string {
+	return typeof tag === "string" ? tag : tag.id
+}
+
+function tagName(tag: TagLike): string {
+	return typeof tag === "string" ? tag : tag.name
+}
+
+type TagsProps = {
+	genres?: TagLike[]
+	moods?: TagLike[]
+	// Genres run to a dozen on some shows, and a card is not the place for all
+	// of them. Moods are capped separately because there are only ten in total
+	// and an episode rarely carries more than two.
+	maxGenres?: number
+	maxMoods?: number
+}
+
+/**
+ * Genres and moods, rendered the same way wherever they appear.
+ *
+ * The live channel card and the full screen view had grown their own copies of
+ * this, with different caps and only one of them showing moods at all, so the
+ * same show described itself differently depending on where you looked at it.
+ *
+ * Moods are dimmer than genres on purpose. A genre says what the music is and
+ * is worth reading; a mood is NTS's own editorial framing and is closer to a
+ * label than a fact.
+ */
+export function Tags(props: TagsProps) {
+	const { genres = [], moods = [], maxGenres = 6, maxMoods = 3 } = props
+
+	if (genres.length === 0 && moods.length === 0) {
+		return null
+	}
+
+	return (
+		<div className={css.tags}>
+			{genres.slice(0, maxGenres).map((tag) => (
+				<span key={tagKey(tag)} className={css.tag}>
+					{tagName(tag)}
+				</span>
+			))}
+			{moods.slice(0, maxMoods).map((tag) => (
+				<span key={tagKey(tag)} className={classnames(css.tag, css.tagMood)}>
+					{tagName(tag)}
+				</span>
+			))}
+		</div>
+	)
+}
+
 export function ChannelCard(props: ChannelCardProps) {
 	const { channel, info, active, onPlay, onStop, onOpenNTS } = props
 	const now = info?.now
@@ -425,14 +483,8 @@ export function ChannelCard(props: ChannelCardProps) {
 					) : null}
 				</div>
 				{now?.description ? <p className={css.cardDesc}>{now.description}</p> : null}
-				{now && now.genres.length > 0 ? (
-					<div className={css.tags}>
-						{now.genres.slice(0, 4).map((g) => (
-							<span key={g} className={css.tag}>
-								{g}
-							</span>
-						))}
-					</div>
+				{now ? (
+					<Tags genres={now.genres} moods={now.moods} maxGenres={4} maxMoods={2} />
 				) : null}
 				<div className={css.cardActions}>
 					<button
@@ -497,6 +549,194 @@ type MixtapesProps = {
 	loading: boolean
 	source: Source | null
 	onSelect: (alias: string) => void
+}
+
+type ExploreProps = {
+	taxonomy: Taxonomy
+	filters: ExploreFilters
+	onFilters: (filters: ExploreFilters) => void
+	state: ExploreState
+	onOpen: (url: string) => void
+}
+
+/**
+ * Browsing the archive by mood and genre, the way the NTS site does.
+ *
+ * Filters narrow rather than widen: two genres means shows carrying both, and
+ * two moods usually means nothing at all, which is why mood is single choice.
+ * The result count is always on screen because of that. Without it, a
+ * combination that legitimately matches four shows is indistinguishable from a
+ * filter that has stopped working.
+ *
+ * A card opens the show through the same path the search results use, so
+ * preview, playback and Open on NTS are the archive view's, not reimplemented.
+ */
+export function ExploreView(props: ExploreProps) {
+	const { taxonomy, filters, onFilters, state, onOpen } = props
+
+	function toggleMood(id: string) {
+		onFilters({ ...filters, mood: filters.mood === id ? null : id })
+	}
+
+	function toggleGenre(id: string) {
+		const on = filters.genres.includes(id)
+		onFilters({
+			...filters,
+			genres: on ? filters.genres.filter((g) => g !== id) : [...filters.genres, id],
+		})
+	}
+
+	// Subgenres are only worth showing for a genre that is actually selected,
+	// since all twenty expanded at once is 442 chips.
+	const expanded = taxonomy.genres.filter((g) => filters.genres.includes(g.id))
+
+	const chosen = filters.mood !== null || filters.genres.length > 0
+
+	return (
+		<>
+			<h1 className={css.heading}>Explore</h1>
+
+			{taxonomy.error ? (
+				<p className={css.empty}>Could not load the mood and genre lists.</p>
+			) : null}
+
+			<div className={css.filterGroup}>
+				<div className={css.filterLabel}>Mood</div>
+				<div className={css.filterChips}>
+					{taxonomy.moods.map(function (mood) {
+						return (
+							<button
+								key={mood.id}
+								type="button"
+								className={classnames(css.filterChip, {
+									[css.filterChipOn]: filters.mood === mood.id,
+								})}
+								onClick={() => toggleMood(mood.id)}
+								title={mood.description || mood.name}
+							>
+								{mood.name}
+							</button>
+						)
+					})}
+				</div>
+			</div>
+
+			<div className={css.filterGroup}>
+				<div className={css.filterLabel}>Genre</div>
+				<div className={css.filterChips}>
+					{taxonomy.genres.map(function (genre) {
+						return (
+							<button
+								key={genre.id}
+								type="button"
+								className={classnames(css.filterChip, {
+									[css.filterChipOn]: filters.genres.includes(genre.id),
+								})}
+								onClick={() => toggleGenre(genre.id)}
+							>
+								{genre.name}
+							</button>
+						)
+					})}
+				</div>
+			</div>
+
+			{expanded.map(function (genre) {
+				return (
+					<div className={css.filterGroup} key={genre.id}>
+						<div className={css.filterLabel}>{genre.name}</div>
+						<div className={css.filterChips}>
+							{genre.subgenres.map(function (sub) {
+								return (
+									<button
+										key={sub.id}
+										type="button"
+										className={classnames(css.filterChip, css.filterChipSub, {
+											[css.filterChipOn]: filters.genres.includes(sub.id),
+										})}
+										onClick={() => toggleGenre(sub.id)}
+									>
+										{sub.name}
+									</button>
+								)
+							})}
+						</div>
+					</div>
+				)
+			})}
+
+			<div className={css.filterFoot}>
+				<span className={css.filterCount}>
+					{state.loading
+						? "Loading..."
+						: state.error
+							? "Could not load shows."
+							: `${state.total.toLocaleString()} ${state.total === 1 ? "show" : "shows"}`}
+				</span>
+				{chosen ? (
+					<button
+						type="button"
+						className={css.filterClear}
+						onClick={() => onFilters({ mood: null, genres: [] })}
+					>
+						Clear
+					</button>
+				) : null}
+			</div>
+
+			{!state.loading && !state.error && state.shows.length === 0 ? (
+				<p className={css.empty}>
+					Nothing carries all of those at once. Filters narrow rather than widen, so
+					try removing one.
+				</p>
+			) : null}
+
+			<div className={css.grid}>
+				{state.shows.map(function (show) {
+					return (
+						<button
+							key={show.url}
+							type="button"
+							className={css.tile}
+							onClick={() => onOpen(show.url)}
+						>
+							<div
+								className={css.tileArt}
+								style={
+									show.image ? { backgroundImage: `url(${show.image})` } : undefined
+								}
+							/>
+							<div className={css.tileBody}>
+								<h2 className={css.tileTitle}>{show.title}</h2>
+								<p className={css.tileSub}>
+									{[show.date, show.location].filter(Boolean).join(" · ")}
+								</p>
+								<Tags
+									genres={show.genres}
+									moods={show.moods}
+									maxGenres={3}
+									maxMoods={1}
+								/>
+							</div>
+						</button>
+					)
+				})}
+			</div>
+
+			{state.hasMore ? (
+				<div className={css.loadMoreRow}>
+					<button
+						type="button"
+						className={css.button}
+						onClick={state.loadMore}
+						disabled={state.loadingMore}
+					>
+						{state.loadingMore ? "Loading..." : "Load more"}
+					</button>
+				</div>
+			) : null}
+		</>
+	)
 }
 
 export function MixtapesView(props: MixtapesProps) {
@@ -674,6 +914,12 @@ export function SearchView(props: SearchProps) {
 								<p className={css.tileSub}>
 									{[result.date, result.location].filter(Boolean).join(" · ")}
 								</p>
+								<Tags
+									genres={result.genres}
+									moods={result.moods}
+									maxGenres={3}
+									maxMoods={1}
+								/>
 							</div>
 						</button>
 					)
@@ -1396,20 +1642,7 @@ export function FullScreen(props: FullProps) {
 					{now.description ? (
 						<p className={css.fullDesc}>{now.description}</p>
 					) : null}
-					{now.genres.length > 0 || now.moods.length > 0 ? (
-						<div className={css.tags}>
-							{now.genres.slice(0, 6).map((g) => (
-								<span key={g} className={css.tag}>
-									{g}
-								</span>
-							))}
-							{now.moods.slice(0, 4).map((m) => (
-								<span key={m} className={classnames(css.tag, css.tagMood)}>
-									{m}
-								</span>
-							))}
-						</div>
-					) : null}
+					<Tags genres={now.genres} moods={now.moods} maxGenres={6} maxMoods={3} />
 					<div className={css.fullControls}>
 						<button type="button" className={css.button} onClick={onToggle}>
 							{playing ? "Stop" : "Play"}

@@ -19,6 +19,7 @@ import {
 	useSleepTimer,
 	useUpdateCheck,
 } from "./lib/controls"
+import { type ExploreFilters, useExplore, useTaxonomy } from "./lib/explore"
 import { useLiveInfo } from "./lib/live"
 import { useMixtapes } from "./lib/mixtapes"
 import { useAudioOutput, useAudioOutputs, useReconcileOutput } from "./lib/outputs"
@@ -43,6 +44,7 @@ import { Offline } from "./offline"
 import { Player, type PlayerStatus } from "./player"
 import {
 	ArchiveView,
+	ExploreView,
 	FullScreen,
 	HistoryView,
 	LiveView,
@@ -366,6 +368,27 @@ export function NTS() {
 	}, [])
 
 	const search = useSearch(query)
+
+	const [exploreFilters, setExploreFilters] = useState<ExploreFilters>({
+		mood: null,
+		genres: [],
+	})
+
+	// Latched rather than tracking the current view: nothing is requested until
+	// Explore is opened for the first time, and leaving and coming back does not
+	// throw away what was already loaded.
+	const [exploreOpened, setExploreOpened] = useState(false)
+	useEffect(
+		function () {
+			if (view === "explore") {
+				setExploreOpened(true)
+			}
+		},
+		[view],
+	)
+
+	const taxonomy = useTaxonomy(exploreOpened)
+	const explore = useExplore(exploreFilters, exploreOpened)
 	const { outputs, refresh: refreshOutputs } = useAudioOutputs()
 
 	useAudioOutput(audioEl, preferences.outputDevice)
@@ -610,6 +633,15 @@ export function NTS() {
 							onPlay={play}
 							onStop={stop}
 							onOpenNTS={openOnNTS}
+						/>
+					) : null}
+					{view === "explore" ? (
+						<ExploreView
+							taxonomy={taxonomy}
+							filters={exploreFilters}
+							onFilters={setExploreFilters}
+							state={explore}
+							onOpen={(url) => electron.send("open-url", url)}
 						/>
 					) : null}
 					{view === "mixtapes" ? (
