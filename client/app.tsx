@@ -115,6 +115,10 @@ export function NTS() {
 	const [status, setStatus] = useState<PlayerStatus>("idle")
 
 	const [show, setShow] = useState<ArchiveShow | null>(null)
+	// The show being listened to, as opposed to the one being looked at. They
+	// were the same thing, so opening a second show to read its details tore down
+	// the player that was mid-way through the first.
+	const [playingShow, setPlayingShow] = useState<ArchiveShow | null>(null)
 	const [position, setPosition] = useState(0)
 	// Reported by the embedded players once they are ready. Zero means nothing is
 	// loaded yet, which is what the scrub bar keys off.
@@ -321,18 +325,14 @@ export function NTS() {
 	const viewRef = useRef(view)
 	viewRef.current = view
 
+	// Opening a show only changes what is on screen. Nothing about playback is
+	// touched: whatever was playing keeps playing until something is actually
+	// asked to start, which is what lets you read one show while hearing another.
 	useEvent("open-show", async function (next: ArchiveShow) {
 		const from = viewRef.current
 		setCameFrom((prev) => (from === "archive" ? prev : from))
 		setShow(next)
-		setActive(null)
-		// Land on the details rather than starting playback: the user asked for
-		// this thing, they have not yet asked to hear it.
-		setArchivePlaying(false)
 		setView("archive")
-		setPosition(0)
-		setDuration(0)
-		setLooped(0)
 	})
 
 	// Opens the episode currently on air, falling back to the show's own page if
@@ -536,20 +536,45 @@ export function NTS() {
 		status === "reconnecting",
 	)
 
+	// Whether the show on screen is the one making sound. Identified by its audio
+	// source, since that is what the embedded player is keyed on.
+	const viewingPlayingShow =
+		Boolean(show?.source?.url) && show?.source?.url === playingShow?.source?.url
+
+	const toggleArchive = useCallback(
+		function () {
+			if (viewingPlayingShow) {
+				setArchivePlaying((x) => !x)
+				return
+			}
+			// A different show: hand the player over to it, and start from the top
+			// rather than wherever the last one had got to.
+			setActive(null)
+			setPlayingShow(show)
+			setPosition(0)
+			setDuration(0)
+			setLooped(0)
+			setArchivePlaying(true)
+		},
+		[show, viewingPlayingShow],
+	)
+
 	const now = useMemo(
 		function (): NowPlaying {
 			// Archive shows play through the embedded players and never touch
 			// `active`, so without this the bar read "Nothing playing" over a show
 			// that was audibly playing.
-			if (archivePlaying && show) {
+			if (archivePlaying && playingShow) {
 				return {
-					title: show.name,
-					subtitle: show.location ? `Archive · ${show.location}` : "Archive",
-					image: show.image,
+					title: playingShow.name,
+					subtitle: playingShow.location
+						? `Archive · ${playingShow.location}`
+						: "Archive",
+					image: playingShow.image,
 					description: "",
-					genres: show.genres,
-					moods: show.moods,
-					location: show.location,
+					genres: playingShow.genres,
+					moods: playingShow.moods,
+					location: playingShow.location,
 					showAlias: "",
 					starts: null,
 					ends: null,
@@ -603,7 +628,7 @@ export function NTS() {
 				ends: onAir?.ends ?? null,
 			}
 		},
-		[active, archivePlaying, live.data, mixtape, show],
+		[active, archivePlaying, live.data, mixtape, playingShow],
 	)
 
 	// Held in a ref so a show change does not restart the cast. Re-issuing LOAD
@@ -750,8 +775,8 @@ export function NTS() {
 							show={show}
 							backLabel={BACK_LABELS[cameFrom]}
 							onBack={() => setView(cameFrom)}
-							playing={archivePlaying}
-							onToggle={() => setArchivePlaying((x) => !x)}
+							playing={archivePlaying && viewingPlayingShow}
+							onToggle={toggleArchive}
 							onOriginal={(url) => electron.send("open-external", url)}
 						/>
 					) : null}
@@ -835,10 +860,10 @@ export function NTS() {
 				volume={muted ? 0 : preferences.volume * fade}
 			/>
 
-			{show?.source?.source === "mixcloud" && (
+			{playingShow?.source?.source === "mixcloud" && (
 				<Mixcloud
-					key={`${show?.source?.url}_${looped}_mixcloud`}
-					show={show}
+					key={`${playingShow?.source?.url}_${looped}_mixcloud`}
+					show={playingShow}
 					playing={archivePlaying}
 					onPlay={() => setArchivePlaying(true)}
 					onStop={() => setArchivePlaying(false)}
@@ -848,10 +873,10 @@ export function NTS() {
 					volume={preferences.volume}
 				/>
 			)}
-			{show?.source?.source === "soundcloud" && (
+			{playingShow?.source?.source === "soundcloud" && (
 				<Soundcloud
-					key={`${show?.source?.url}_soundcloud`}
-					show={show}
+					key={`${playingShow?.source?.url}_soundcloud`}
+					show={playingShow}
 					playing={archivePlaying}
 					onPlay={() => setArchivePlaying(true)}
 					onStop={() => setArchivePlaying(false)}
