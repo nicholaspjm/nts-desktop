@@ -37,16 +37,45 @@ export function Mixcloud(props: Props) {
 
 			// @ts-expect-error
 			const w = window.Mixcloud.PlayerWidget(ref.current) as Mixcloud.PlayerWidget
+
+			let cancelled = false
+			let bound = false
+
 			w.ready
 				.then(function () {
+					// The effect may have been torn down while the widget was still
+					// getting ready, in which case binding now would leave listeners
+					// behind with nothing to remove them.
+					if (cancelled) {
+						return
+					}
 					w.events.play.on(onPlay)
 					w.events.pause.on(onStop)
 					w.events.ended.on(onStop)
 					w.events.progress.on(onProgress)
+					bound = true
 					w.getDuration().then((duration) => onLoad(duration))
 					setWidget(w)
 				})
 				.catch((err) => console.error(err))
+
+			// There was no cleanup here at all, so every run of this effect added
+			// four more listeners to the same iframe and removed none. Switching
+			// shows, or anything else that re-ran it, accumulated them.
+			return function () {
+				cancelled = true
+				if (!bound) {
+					return
+				}
+				try {
+					w.events.play.off(onPlay)
+					w.events.pause.off(onStop)
+					w.events.ended.off(onStop)
+					w.events.progress.off(onProgress)
+				} catch {
+					// The iframe can be gone already, which is the case this is for.
+				}
+			}
 		},
 		[show, onLoad, onPlay, onStop, onProgress],
 	)

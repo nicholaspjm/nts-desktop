@@ -49,6 +49,9 @@ export class NTSApplication {
 	castSession: CastSession | null = null
 	// Bounds to put back when leaving the mini player, and whether it is on.
 	mini = false
+	// Repeated crashes in a short window mean reloading is not helping.
+	private crashes = 0
+	private lastCrash = 0
 	private normalBounds: Electron.Rectangle | null = null
 
 	constructor(production: boolean) {
@@ -258,11 +261,35 @@ export class NTSApplication {
 		// Cmd+W and clipboard shortcuts, so keep a standard minimal one there.
 		Menu.setApplicationMenu(mac ? makeAppMenu() : null)
 
+		// A dead renderer left a black window and no way back, which for an app
+		// whose point is not stopping is the worst state it can be in. Reloading
+		// costs the current view and whatever was playing, but a listener can
+		// press play again; they cannot revive a blank window.
 		this.window.webContents.on("render-process-gone", (_evt, details) => {
 			diagnostics.record(
 				"renderer gone",
 				`reason=${details.reason} exitCode=${details.exitCode}`,
 			)
+
+			// Reloading straight into the same crash would spin forever, so give
+			// up after a few in quick succession and leave the window alone with
+			// the reason written to the log.
+			const now = Date.now()
+			if (now - this.lastCrash > CRASH_WINDOW) {
+				this.crashes = 0
+			}
+			this.lastCrash = now
+			this.crashes += 1
+
+			if (this.crashes > CRASH_LIMIT) {
+				diagnostics.record(
+					"renderer gone",
+					`crashed ${this.crashes} times in quick succession, not reloading again`,
+				)
+				return
+			}
+
+			this.window.webContents.reload()
 		})
 		this.window.webContents.on("unresponsive", () => {
 			diagnostics.record("renderer unresponsive", "window stopped responding")
@@ -533,6 +560,11 @@ function makeAppMenu(): Menu {
 // The original popup's exact dimensions. The layout is a reconstruction of it,
 // and the proportions are part of the look: artwork fills the window, so a
 // different aspect ratio crops it differently.
+// How long a crash counts as "recent", and how many reloads to attempt inside
+// that window before concluding the reload is part of the problem.
+const CRASH_WINDOW = 60_000
+const CRASH_LIMIT = 3
+
 const MINI_WIDTH = 360
 const MINI_HEIGHT = 270
 const MAIN_MIN_WIDTH = 880

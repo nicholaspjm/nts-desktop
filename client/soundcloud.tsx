@@ -89,11 +89,18 @@ export function Soundcloud(props: Props) {
 			})
 
 			return function () {
-				w.unbind(Events.PLAY)
-				w.unbind(Events.PAUSE)
-				w.unbind(Events.FINISH)
-				w.unbind(Events.PLAY_PROGRESS)
-				w.unbind(Events.READY)
+				// Unbinding reaches into the iframe, which React has often already
+				// removed by this point when the show is changing. A throw here is
+				// during unmount, where it takes the tree down with it.
+				try {
+					w.unbind(Events.PLAY)
+					w.unbind(Events.PAUSE)
+					w.unbind(Events.FINISH)
+					w.unbind(Events.PLAY_PROGRESS)
+					w.unbind(Events.READY)
+				} catch {
+					// Already gone, which is the outcome this wanted anyway.
+				}
 			}
 		},
 		[show, onStop, onLoad, onPlay, onProgress],
