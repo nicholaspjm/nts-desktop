@@ -467,14 +467,31 @@ export function NTS() {
 	// changes. Sending on both is deliberate: a device chosen mid-show has to
 	// reach the player that is already running, and a show started later has to
 	// pick up the choice already made.
+	//
+	// The label goes over rather than the id, because device ids are salted per
+	// origin: the id held here does not name the same device inside the player's
+	// frame, and passing it there rejects with NotFoundError.
+	const outputLabel = useMemo(
+		function () {
+			if (preferences.outputDevice === "") {
+				return ""
+			}
+			return outputs.find((o) => o.id === preferences.outputDevice)?.label ?? null
+		},
+		[outputs, preferences.outputDevice],
+	)
+
 	useEffect(
 		function () {
-			if (!playingShow) {
+			// null means the device list has not caught up with the saved choice yet.
+			// Sending now would route to the default and look like the setting had
+			// been ignored, so it waits for the list instead.
+			if (!playingShow || outputLabel === null) {
 				return
 			}
-			electron.send("frame-output", preferences.outputDevice)
+			electron.send("frame-output", outputLabel)
 		},
-		[preferences.outputDevice, playingShow],
+		[outputLabel, playingShow],
 	)
 
 	const forgetOutputDevice = useCallback(

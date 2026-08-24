@@ -15,12 +15,19 @@ import {
 	ipcMain,
 	nativeImage,
 	shell,
+	webFrameMain,
 } from "electron"
 import serve from "electron-serve"
 
 import { type CastDevice, CastDiscovery, type CastMedia, CastSession } from "./cast"
 import * as credentials from "./credentials"
 import * as diagnostics from "./diagnostics"
+import {
+	hookFrame,
+	installPermissionHandlers,
+	isPlayerFrame,
+	routeFrames,
+} from "./frame-audio"
 import * as history from "./history"
 import { NTSLiveTracks } from "./live-tracks"
 import * as preferences from "./preferences"
@@ -49,6 +56,9 @@ export class NTSApplication {
 	castSession: CastSession | null = null
 	// Bounds to put back when leaving the mini player, and whether it is on.
 	mini = false
+	// The label of the chosen output device. A label rather than an id because
+	// the players are cross-origin and ids do not survive that boundary.
+	private outputLabel = ""
 	// Repeated crashes in a short window mean reloading is not helping.
 	private crashes = 0
 	private lastCrash = 0
@@ -159,15 +169,12 @@ export class NTSApplication {
 
 		ipcMain.on("cast-stop", () => this.stopCast())
 
-		// Routes the embedded players to the chosen output.
-		//
-		// setSinkId only ever applies to a media element the calling document
-		// owns, so a page cannot route audio inside a cross-origin frame. The main
-		// process can: it reaches each frame directly, and the frames carry
-		// allow="speaker-selection", which this app grants them. Verified against
-		// a loopback device, where the audio genuinely moved.
-		ipcMain.on("frame-output", (_evt: IpcMainEvent, deviceId: string) => {
-			this.applyFrameOutput(deviceId)
+		// Routes the embedded players to the chosen output. The renderer sends the
+		// device's label rather than its id, because ids are salted per origin and
+		// the app's id means nothing inside the player's frame.
+		ipcMain.on("frame-output", (_evt: IpcMainEvent, label: string) => {
+			this.outputLabel = label
+			this.applyFrameOutput()
 		})
 
 		// The local element is not in the audio path while casting, so the app's
@@ -276,6 +283,26 @@ export class NTSApplication {
 		// whose point is not stopping is the worst state it can be in. Reloading
 		// costs the current view and whatever was playing, but a listener can
 		// press play again; they cannot revive a blank window.
+		// Has to be in place before any player frame loads, since it decides what
+		// the frame is allowed to see.
+		installPermissionHandlers()
+
+		// Hooked as early as the frame can be reached, because the widget's audio
+		// has to be captured as it is constructed rather than found afterwards.
+		this.window.webContents.on(
+			"did-frame-navigate",
+			(_evt, _url, _code, _status, isMainFrame, processId, frameRoutingId) => {
+				if (isMainFrame) {
+					return
+				}
+				const frame = webFrameMain.fromId(processId, frameRoutingId)
+				if (!frame || !isPlayerFrame(frame)) {
+					return
+				}
+				hookFrame(frame).then(() => this.applyFrameOutput())
+			},
+		)
+
 		this.window.webContents.on("render-process-gone", (_evt, details) => {
 			diagnostics.record(
 				"renderer gone",
@@ -410,48 +437,21 @@ export class NTSApplication {
 	/**
 	 * Points every embedded player at the chosen output device.
 	 *
-	 * Retried a few times because the frame's media element is created when its
-	 * widget loads, which is after the frame itself exists, so the first attempt
-	 * usually finds nothing to route.
+	 * Retried briefly because a widget that is still loading has not created the
+	 * thing that carries its audio yet. The hook applies the choice to anything
+	 * built after this runs, so the retries only have to cover a frame that was
+	 * not yet reachable at all.
 	 */
-	applyFrameOutput(deviceId: string, attempt = 0): void {
+	applyFrameOutput(attempt = 0): void {
 		if (this.window.isDestroyed()) {
 			return
 		}
 
-		const frames = this.window.webContents.mainFrame.framesInSubtree
-		let reached = 0
+		void routeFrames(this.window.webContents, this.outputLabel)
 
-		for (const frame of frames) {
-			if (frame === this.window.webContents.mainFrame) {
-				continue
-			}
-			reached += 1
-			frame
-				.executeJavaScript(
-					`(function () {
-						var els = document.querySelectorAll("audio, video")
-						for (var i = 0; i < els.length; i++) {
-							if (els[i].setSinkId) {
-								els[i].setSinkId(${JSON.stringify(deviceId)}).catch(function () {})
-							}
-						}
-						return els.length
-					})()`,
-				)
-				.catch(() => {
-					// A frame can go away mid-call, which is not worth reporting.
-				})
-		}
-
-		// Keep trying briefly: a widget that is still loading has no element yet.
 		if (attempt < FRAME_OUTPUT_TRIES) {
-			setTimeout(
-				() => this.applyFrameOutput(deviceId, attempt + 1),
-				FRAME_OUTPUT_DELAY,
-			)
+			setTimeout(() => this.applyFrameOutput(attempt + 1), FRAME_OUTPUT_DELAY)
 		}
-		void reached
 	}
 
 	close() {

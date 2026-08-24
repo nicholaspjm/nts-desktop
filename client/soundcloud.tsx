@@ -164,10 +164,12 @@ export function Soundcloud(props: Props) {
 		<iframe
 			ref={ref}
 			src={`https://w.soundcloud.com/player/?url=${feed}`}
-			// speaker-selection lets this frame's own audio be routed to a chosen
-			// device. The parent grants it; SoundCloud does not have to cooperate,
-			// and without it the routing below silently does nothing.
-			allow="autoplay; speaker-selection"
+			// speaker-selection lets this frame's audio be routed to a chosen device,
+			// and microphone is what makes the device names readable inside the frame:
+			// Chromium hides output ids from a frame without it, and an id that cannot
+			// be read cannot be routed to. Nothing can actually record, because the
+			// main process refuses every capture request. See app/frame-audio.ts.
+			allow="autoplay 'src'; speaker-selection 'src'; microphone 'src'"
 			className={css.frame}
 		/>
 	)

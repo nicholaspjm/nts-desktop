@@ -124,10 +124,12 @@ export function Mixcloud(props: Props) {
 		<iframe
 			ref={ref}
 			src={`https://www.mixcloud.com/widget/iframe/?hide_cover=1&mini=1&feed=${feed}`}
-			// speaker-selection lets this frame's own audio be routed to a chosen
-			// device. The parent grants it; Mixcloud does not have to cooperate,
-			// and without it the routing silently does nothing.
-			allow="autoplay; speaker-selection"
+			// As in soundcloud.tsx: speaker-selection to allow the routing, microphone
+			// to make the device names readable, capture refused in the main process.
+			// The widget URL redirects to player-widget.mixcloud.com, and a permission
+			// delegated only to the src origin is dropped on the way, so the
+			// destination is named too or the routing silently does nothing.
+			allow="autoplay 'src' https://player-widget.mixcloud.com; speaker-selection 'src' https://player-widget.mixcloud.com; microphone 'src' https://player-widget.mixcloud.com"
 			className={css.frame}
 		/>
 	)

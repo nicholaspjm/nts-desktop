@@ -124,7 +124,11 @@ seconds, so a stutter has to last a long time to be audible. Both are the same
 - Media keys, a sleep timer that fades out, and output device selection, which
   reaches recorded shows as well as the live channels. Those play inside
   SoundCloud's or Mixcloud's own frame, which no page can route, so the main
-  process does it instead
+  process does it instead. Chromium hides output device names from a frame that
+  does not hold microphone permission, and a name that cannot be read cannot be
+  routed to, so those two frames are granted it. Nothing can record: every
+  capture request is refused, and there is no camera or microphone feature in
+  the app at all. See `app/frame-audio.ts`
 - A mini player, the small window this project started as, from the button next
   to the menu or by pressing N
 - Keyboard throughout: space plays, 1 and 2 pick a channel, M mutes, F fills the
