@@ -578,6 +578,25 @@ export function NTS() {
 		[show, viewingPlayingShow],
 	)
 
+	// Stable, because the embedded players list these in their effect
+	// dependencies. Passed inline they were a new function every render, which
+	// tore the widget down and rebuilt it continuously.
+	const handleArchivePlay = useCallback(function () {
+		setArchiveLive(true)
+	}, [])
+
+	const handleArchiveStop = useCallback(function () {
+		setArchiveLive(false)
+	}, [])
+
+	// Progress is proof. The play event alone was not enough to trust, and this
+	// is the same reasoning the stream watchdog uses: what the position does is
+	// more reliable than what the player says about itself.
+	const handleArchiveProgress = useCallback(function (pos: number) {
+		setPosition(Math.round(pos))
+		setArchiveLive(true)
+	}, [])
+
 	const now = useMemo(
 		function (): NowPlaying {
 			// Archive shows play through the embedded players and never touch
@@ -809,6 +828,9 @@ export function NTS() {
 					position={position}
 					duration={duration}
 					onSeek={setPosition}
+					statusLabel={
+						archivePlaying ? (archiveLive ? "Playing" : "Loading") : undefined
+					}
 					volume={preferences.volume}
 					muted={muted}
 					source={active}
@@ -885,10 +907,10 @@ export function NTS() {
 					key={`${playingShow?.source?.url}_${looped}_mixcloud`}
 					show={playingShow}
 					playing={archivePlaying}
-					onPlay={() => setArchiveLive(true)}
-					onStop={() => setArchiveLive(false)}
+					onPlay={handleArchivePlay}
+					onStop={handleArchiveStop}
 					onLoad={setDuration}
-					onProgress={(pos: number) => setPosition(Math.round(pos))}
+					onProgress={handleArchiveProgress}
 					position={position}
 					volume={preferences.volume}
 				/>
@@ -898,10 +920,10 @@ export function NTS() {
 					key={`${playingShow?.source?.url}_soundcloud`}
 					show={playingShow}
 					playing={archivePlaying}
-					onPlay={() => setArchiveLive(true)}
-					onStop={() => setArchiveLive(false)}
+					onPlay={handleArchivePlay}
+					onStop={handleArchiveStop}
 					onLoad={setDuration}
-					onProgress={(pos: number) => setPosition(Math.round(pos))}
+					onProgress={handleArchiveProgress}
 					position={position}
 					volume={preferences.volume}
 				/>

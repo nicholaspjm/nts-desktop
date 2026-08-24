@@ -1774,6 +1774,10 @@ type BarProps = {
 	position: number
 	duration: number
 	onSeek: (seconds: number) => void
+	// Overrides the word for the current state. An archive show waiting on an
+	// embedded player is loading rather than connecting: there is no stream to
+	// connect to, and the distinction is the app's own elsewhere.
+	statusLabel?: string
 	onToggle: () => void
 	onVolume: (volume: number) => void
 	onMute: () => void
@@ -2103,6 +2107,7 @@ export function NowPlayingBar(props: BarProps) {
 		position,
 		duration,
 		onSeek,
+		statusLabel,
 		onToggle,
 		onVolume,
 		onMute,
@@ -2178,8 +2183,10 @@ export function NowPlayingBar(props: BarProps) {
 				<div className={css.barFormat}>{format ?? "No stream"}</div>
 				<div className={css.barStreamSub}>
 					<StatusDot status={status} />
-					{STATUS_LABEL[status]}
-					{status === "playing" ? ` · ${health.buffered.toFixed(1)}s buffered` : ""}
+					{statusLabel ?? STATUS_LABEL[status]}
+					{status === "playing" && !statusLabel
+						? ` · ${health.buffered.toFixed(1)}s buffered`
+						: ""}
 				</div>
 			</div>
 
