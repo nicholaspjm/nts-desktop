@@ -481,6 +481,27 @@
 	min-width: 120px;
 }
 
+/* Stopped, but still the thing loaded. Dimmed so it cannot be mistaken for
+   playing, and still fully readable so it can be resumed. */
+.barPaused .barTitle,
+.barPaused .barSub {
+	opacity: 0.55;
+}
+
+.barPaused .barArtButton {
+	opacity: 0.5;
+}
+
+.barPausedMark {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--nts-text);
+	background: rgba(0, 0, 0, 0.45);
+}
+
 .barArtButton {
 	appearance: none;
 	border: none;
@@ -983,6 +1004,12 @@
 	padding: 4px 8px;
 	cursor: pointer;
 	font-variant-numeric: tabular-nums;
+}
+
+.skip:disabled,
+.transportRange:disabled {
+	opacity: 0.4;
+	cursor: default;
 }
 
 .skip:hover {

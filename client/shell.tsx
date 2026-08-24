@@ -1142,13 +1142,17 @@ export function ArchiveView(props: ArchiveProps) {
 						) : null}
 					</div>
 
-					{/* Only once the show is loaded and has a known length. A show being
-					    read while a different one plays has no progress of its own. */}
-					{duration > 0 ? (
+					{/* Shown for anything with audio, not only once it is playing. The
+					    length is unknown until the player has loaded, which does not
+					    happen until playback starts, so waiting on it meant a recording
+					    had no visible transport at all until after it began. It sits
+					    disabled and reading zero until the length arrives. */}
+					{show.source?.url ? (
 						<div className={css.transport}>
 							<button
 								type="button"
 								className={css.skip}
+								disabled={duration === 0}
 								onClick={() => onSeek(Math.max(0, position - SKIP))}
 								title={`Back ${SKIP} seconds`}
 								aria-label={`Back ${SKIP} seconds`}
@@ -1160,8 +1164,9 @@ export function ArchiveView(props: ArchiveProps) {
 							<input
 								className={css.transportRange}
 								type="range"
+								disabled={duration === 0}
 								min={0}
-								max={Math.floor(duration)}
+								max={Math.max(1, Math.floor(duration))}
 								step={1}
 								value={Math.min(position, Math.floor(duration))}
 								aria-label="Seek"
@@ -1172,6 +1177,7 @@ export function ArchiveView(props: ArchiveProps) {
 							<button
 								type="button"
 								className={css.skip}
+								disabled={duration === 0}
 								onClick={() =>
 									onSeek(Math.min(Math.floor(duration), position + SKIP))
 								}
@@ -1896,6 +1902,9 @@ type BarProps = {
 	// Given only when there is a page to go to, which is archive shows. A live
 	// channel is already the thing on screen.
 	onOpenPlaying?: () => void
+	// Loaded but stopped. Kept on screen rather than cleared, dimmed so it does
+	// not read as playing.
+	paused?: boolean
 	// Overrides the word for the current state. An archive show waiting on an
 	// embedded player is loading rather than connecting: there is no stream to
 	// connect to, and the distinction is the app's own elsewhere.
@@ -2230,6 +2239,7 @@ export function NowPlayingBar(props: BarProps) {
 		duration,
 		onSeek,
 		onOpenPlaying,
+		paused,
 		statusLabel,
 		onToggle,
 		onVolume,
@@ -2260,7 +2270,7 @@ export function NowPlayingBar(props: BarProps) {
 		: null
 
 	return (
-		<div className={css.bar}>
+		<div className={classnames(css.bar, { [css.barPaused]: paused })}>
 			<button
 				type="button"
 				className={css.barArtButton}
@@ -2268,6 +2278,16 @@ export function NowPlayingBar(props: BarProps) {
 				onClick={onExpand}
 				style={image ? { backgroundImage: `url(${image})` } : undefined}
 			>
+				{/* A stopped show stays on screen, so the artwork has to say which
+				    of the two states it is in without being read. */}
+				{paused ? (
+					<span className={css.barPausedMark}>
+						<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+							<rect x="4" y="3" width="3" height="10" fill="currentColor" />
+							<rect x="9" y="3" width="3" height="10" fill="currentColor" />
+						</svg>
+					</span>
+				) : null}
 				<span className={css.barExpand}>
 					<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
 						<path

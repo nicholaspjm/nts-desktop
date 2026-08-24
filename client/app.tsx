@@ -629,7 +629,10 @@ export function NTS() {
 			// Archive shows play through the embedded players and never touch
 			// `active`, so without this the bar read "Nothing playing" over a show
 			// that was audibly playing.
-			if (archivePlaying && playingShow) {
+			// Also when it is paused. A show that has been stopped is still the thing
+			// loaded, and replacing it with "Nothing playing" threw away what the
+			// listener had chosen and where they had got to.
+			if (playingShow && !active) {
 				return {
 					title: playingShow.name,
 					subtitle: playingShow.location
@@ -693,7 +696,7 @@ export function NTS() {
 				ends: onAir?.ends ?? null,
 			}
 		},
-		[active, archivePlaying, live.data, mixtape, playingShow],
+		[active, live.data, mixtape, playingShow],
 	)
 
 	// Held in a ref so a show change does not restart the cast. Re-issuing LOAD
@@ -868,8 +871,15 @@ export function NTS() {
 							: undefined
 					}
 					statusLabel={
-						archivePlaying ? (archiveLive ? "Playing" : "Loading") : undefined
+						archivePlaying
+							? archiveLive
+								? "Playing"
+								: "Loading"
+							: playingShow && !active
+								? "Paused"
+								: undefined
 					}
+					paused={Boolean(playingShow) && !active && !archivePlaying}
 					volume={preferences.volume}
 					muted={muted}
 					source={active}
