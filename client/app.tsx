@@ -585,6 +585,21 @@ export function NTS() {
 					onWindow={handleWindow}
 					onMini={toggleMini}
 					update={update}
+					outputs={outputs}
+					outputDevice={preferences.outputDevice}
+					onOutputDevice={setOutputDevice}
+					onRefreshOutputs={refreshOutputs}
+					castDevices={castDevices}
+					castTarget={castTarget}
+					castingNow={casting}
+					canCast={src !== null}
+					castStatus={castState.status}
+					castError={castState.error}
+					onOpenCast={handleOpenCast}
+					onCloseCast={idleCast}
+					onCast={setCastTarget}
+					onStopCast={handleStopCast}
+					onRescanCast={rescanCast}
 				/>
 				<Nav view={view} onView={setView} hasArchive={Boolean(show)} />
 				<main className={css.content}>
@@ -662,20 +677,6 @@ export function NTS() {
 					source={active}
 					onChannel={toggleChannel}
 					health={health}
-					outputs={outputs}
-					outputDevice={preferences.outputDevice}
-					onOutputDevice={setOutputDevice}
-					castDevices={castDevices}
-					castTarget={castTarget}
-					castingNow={casting}
-					canCast={src !== null}
-					castStatus={castState.status}
-					castError={castState.error}
-					onOpenCast={handleOpenCast}
-					onCloseCast={idleCast}
-					onCast={setCastTarget}
-					onStopCast={handleStopCast}
-					onRescanCast={rescanCast}
 					onToggle={toggle}
 					onVolume={(v) => {
 						setMuted(false)

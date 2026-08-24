@@ -66,6 +66,8 @@
 
 .menu {
 	position: absolute;
+	max-height: calc(100vh - 60px);
+	overflow-y: auto;
 	top: 100%;
 	left: 0;
 	z-index: 200;
@@ -75,6 +77,41 @@
 	padding: 4px 0;
 	display: flex;
 	flex-direction: column;
+}
+
+.menuHeading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 6px 12px 4px;
+	font-size: 10px;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--nts-text-faint);
+}
+
+.menuRefresh {
+	appearance: none;
+	background: none;
+	border: none;
+	padding: 0;
+	font: inherit;
+	font-size: 10px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--nts-text-faint);
+	cursor: pointer;
+}
+
+.menuRefresh:hover {
+	color: var(--nts-text);
+}
+
+.menuRule {
+	height: 1px;
+	margin: 4px 0;
+	background: var(--nts-line-soft);
 }
 
 .menuItem {
@@ -88,6 +125,12 @@
 	padding: 7px 14px;
 	cursor: pointer;
 	white-space: nowrap;
+}
+
+/* The output in use, so the list says which one is doing the work. Has to sit
+   after .menuItem: same specificity, so source order is what decides. */
+.menuItemOn {
+	color: var(--nts-red);
 }
 
 .menuItem:hover {
@@ -1073,13 +1116,13 @@
 
 .castMenu {
 	position: absolute;
-	bottom: 100%;
-	/* Anchored left: the button sits mid-bar now, so a right-anchored menu would
-	   run back toward the artwork instead of into the space beside it. */
+	/* Drops from the title bar. It used to rise from the bottom bar, and left
+	   like that it would open straight off the top of the window. */
+	top: 100%;
 	left: 0;
 	z-index: 200;
 	min-width: 190px;
-	margin-bottom: 6px;
+	margin-top: 4px;
 	background: var(--nts-panel);
 	border: 1px solid var(--nts-line);
 	padding: 4px 0;

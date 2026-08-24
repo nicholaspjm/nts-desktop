@@ -87,10 +87,48 @@ type TitleBarProps = {
 	onAction: (action: MenuAction) => void
 	onWindow: (action: WindowAction) => void
 	update: UpdateState | null
+	// Where the sound comes out. Both live up here now: the bottom bar was
+	// carrying two controls that are set once and then left alone, which is
+	// what a menu is for.
+	outputs: AudioOutput[]
+	outputDevice: string
+	onOutputDevice: (id: string) => void
+	onRefreshOutputs: () => void
+	castDevices: CastDevice[]
+	castTarget: string | null
+	castingNow: boolean
+	canCast: boolean
+	castStatus: CastStatus
+	castError?: string
+	onOpenCast: () => void
+	onCloseCast: () => void
+	onCast: (deviceId: string) => void
+	onStopCast: () => void
+	onRescanCast: () => void
 }
 
 export function TitleBar(props: TitleBarProps) {
-	const { onAction, onWindow, onMini, update } = props
+	const {
+		onAction,
+		onWindow,
+		onMini,
+		update,
+		outputs,
+		outputDevice,
+		onOutputDevice,
+		onRefreshOutputs,
+		castDevices,
+		castTarget,
+		castingNow,
+		canCast,
+		castStatus,
+		castError,
+		onOpenCast,
+		onCloseCast,
+		onCast,
+		onStopCast,
+		onRescanCast,
+	} = props
 	const [open, setOpen] = useState(false)
 	const menu = useRef<HTMLDivElement | null>(null)
 
@@ -158,6 +196,56 @@ export function TitleBar(props: TitleBarProps) {
 
 				{open ? (
 					<div className={css.menu}>
+						{/* Output first, because it is the only thing here that changes
+						    what you hear. Devices are listed rather than put in a select,
+						    so the menu is one kind of thing to click all the way down. */}
+						<div className={css.menuHeading}>
+							Output
+							<button
+								type="button"
+								className={css.menuRefresh}
+								onClick={onRefreshOutputs}
+								title="Look for audio devices again"
+							>
+								Refresh
+							</button>
+						</div>
+
+						<button
+							type="button"
+							className={classnames(css.menuItem, {
+								[css.menuItemOn]: outputDevice === "",
+							})}
+							onClick={() => {
+								setOpen(false)
+								onOutputDevice("")
+							}}
+						>
+							System default
+						</button>
+
+						{outputs
+							.filter((o) => o.id !== "default")
+							.map(function (output) {
+								return (
+									<button
+										key={output.id}
+										type="button"
+										className={classnames(css.menuItem, {
+											[css.menuItemOn]: outputDevice === output.id,
+										})}
+										onClick={() => {
+											setOpen(false)
+											onOutputDevice(output.id)
+										}}
+									>
+										{output.label}
+									</button>
+								)
+							})}
+
+						<div className={css.menuRule} />
+
 						{items.map(function (item) {
 							return (
 								<button
@@ -199,6 +287,20 @@ export function TitleBar(props: TitleBarProps) {
 					<rect x="7.5" y="7.5" width="5.5" height="4" fill="currentColor" />
 				</svg>
 			</button>
+
+			<CastButton
+				devices={castDevices}
+				target={castTarget}
+				casting={castingNow}
+				canCast={canCast}
+				onClose={onCloseCast}
+				status={castStatus}
+				error={castError}
+				onOpen={onOpenCast}
+				onSelect={onCast}
+				onStop={onStopCast}
+				onRescan={onRescanCast}
+			/>
 
 			<div className={css.drag} />
 
@@ -1371,20 +1473,6 @@ type BarProps = {
 	source: Source | null
 	onChannel: (id: 1 | 2) => void
 	health: StreamHealth
-	outputs: AudioOutput[]
-	outputDevice: string
-	onOutputDevice: (id: string) => void
-	castDevices: CastDevice[]
-	castTarget: string | null
-	castingNow: boolean
-	canCast: boolean
-	castStatus: CastStatus
-	castError?: string
-	onOpenCast: () => void
-	onCloseCast: () => void
-	onCast: (deviceId: string) => void
-	onStopCast: () => void
-	onRescanCast: () => void
 	onToggle: () => void
 	onVolume: (volume: number) => void
 	onMute: () => void
@@ -1702,20 +1790,6 @@ export function NowPlayingBar(props: BarProps) {
 		source,
 		onChannel,
 		health,
-		outputs,
-		outputDevice,
-		onOutputDevice,
-		castDevices,
-		castTarget,
-		castingNow,
-		canCast,
-		castStatus,
-		castError,
-		onOpenCast,
-		onCloseCast,
-		onCast,
-		onStopCast,
-		onRescanCast,
 		onToggle,
 		onVolume,
 		onMute,
@@ -1768,20 +1842,6 @@ export function NowPlayingBar(props: BarProps) {
 				<div className={css.barTitle}>{title}</div>
 				<div className={css.barSub}>{subtitle}</div>
 			</div>
-			<CastButton
-				devices={castDevices}
-				target={castTarget}
-				casting={castingNow}
-				canCast={canCast}
-				onClose={onCloseCast}
-				status={castStatus}
-				error={castError}
-				onOpen={onOpenCast}
-				onSelect={onCast}
-				onStop={onStopCast}
-				onRescan={onRescanCast}
-			/>
-
 			<div className={css.barStream}>
 				<div className={css.barFormat}>{format ?? "No stream"}</div>
 				<div className={css.barStreamSub}>
@@ -1790,18 +1850,6 @@ export function NowPlayingBar(props: BarProps) {
 					{status === "playing" ? ` · ${health.buffered.toFixed(1)}s buffered` : ""}
 				</div>
 			</div>
-
-			{outputs.length > 0 ? (
-				<select
-					className={css.barSelect}
-					value={outputDevice}
-					aria-label="Audio output"
-					title="Audio output"
-					onChange={(e) => onOutputDevice(e.target.value)}
-				>
-					<OutputOptions outputs={outputs} />
-				</select>
-			) : null}
 
 			<div className={css.barChannels}>
 				{([1, 2] as const).map(function (id) {
