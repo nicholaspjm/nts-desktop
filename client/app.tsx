@@ -815,6 +815,9 @@ export function NTS() {
 							onBack={() => setView(cameFrom)}
 							playing={archivePlaying && viewingPlayingShow}
 							starting={viewingPlayingShow && archivePlaying && !archiveLive}
+							position={viewingPlayingShow ? position : 0}
+							duration={viewingPlayingShow ? duration : 0}
+							onSeek={setPosition}
 							onToggle={toggleArchive}
 							onOriginal={(url) => electron.send("open-external", url)}
 						/>
@@ -828,6 +831,15 @@ export function NTS() {
 					position={position}
 					duration={duration}
 					onSeek={setPosition}
+					onOpenPlaying={
+						playingShow
+							? function () {
+									setShow(playingShow)
+									setCameFrom(viewRef.current)
+									setView("archive")
+								}
+							: undefined
+					}
 					statusLabel={
 						archivePlaying ? (archiveLive ? "Playing" : "Loading") : undefined
 					}
@@ -868,6 +880,7 @@ export function NTS() {
 					onCancelSleep={sleep.cancel}
 					outputSampleRate={outputSampleRate}
 					casting={armed}
+					archive={archivePlaying ? playingShow : null}
 					status={displayStatus}
 					playing={playing}
 					volume={preferences.volume}

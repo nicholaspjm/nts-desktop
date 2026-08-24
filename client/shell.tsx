@@ -986,6 +986,11 @@ type ArchiveProps = {
 	onBack: () => void
 	// Asked for, but the embedded player has not reported back yet.
 	starting: boolean
+	// Zero unless this is the show that is loaded, so a show being read while
+	// another plays does not show the other one's progress as its own.
+	position: number
+	duration: number
+	onSeek: (seconds: number) => void
 	playing: boolean
 	onToggle: () => void
 	onOriginal: (url: string) => void
@@ -998,6 +1003,9 @@ type ArchiveProps = {
  * is already on screen is the friction between the two. Confirms in place
  * rather than with a toast, so the answer sits next to the thing acted on.
  */
+// A two hour show needs a bigger step than a song does.
+const SKIP = 30
+
 function CopyTrack(props: { text: string }) {
 	const [done, setDone] = useState(false)
 
@@ -1030,8 +1038,54 @@ function CopyTrack(props: { text: string }) {
 	)
 }
 
+/**
+ * A show's tracklist, shared by the details screen and the full screen view.
+ *
+ * Deliberately without timings. The artists and titles are public, and appear
+ * in the page a logged out visitor is served; the offsets are what NTS sells to
+ * Supporters, so they are not parsed at all.
+ */
+function Tracklist(props: { tracks: ArchiveShow["tracklist"] }) {
+	const { tracks } = props
+
+	if (!tracks || tracks.length === 0) {
+		return null
+	}
+
+	return (
+		<section className={css.tracklist}>
+			<h2 className={css.heading}>Tracklist</h2>
+			{tracks.map(function (track, i) {
+				return (
+					<div key={`${track.artist}-${track.title}-${i}`} className={css.row}>
+						<span className={css.rowIndex}>{String(i + 1).padStart(2, "0")}</span>
+						<span className={css.rowName}>
+							{track.artist ? `${track.artist} - ` : ""}
+							{track.title}
+						</span>
+						<CopyTrack
+							text={track.artist ? `${track.artist} - ${track.title}` : track.title}
+						/>
+					</div>
+				)
+			})}
+		</section>
+	)
+}
+
 export function ArchiveView(props: ArchiveProps) {
-	const { show, playing, starting, onToggle, onOriginal, backLabel, onBack } = props
+	const {
+		show,
+		playing,
+		starting,
+		position,
+		duration,
+		onSeek,
+		onToggle,
+		onOriginal,
+		backLabel,
+		onBack,
+	} = props
 
 	if (!show) {
 		return <p className={css.empty}>No archive show loaded. Find one in Search.</p>
@@ -1078,32 +1132,51 @@ export function ArchiveView(props: ArchiveProps) {
 							</button>
 						) : null}
 					</div>
+
+					{/* Only once the show is loaded and has a known length. A show being
+					    read while a different one plays has no progress of its own. */}
+					{duration > 0 ? (
+						<div className={css.transport}>
+							<button
+								type="button"
+								className={css.skip}
+								onClick={() => onSeek(Math.max(0, position - SKIP))}
+								title={`Back ${SKIP} seconds`}
+								aria-label={`Back ${SKIP} seconds`}
+							>
+								{`- ${SKIP}s`}
+							</button>
+
+							<span className={css.scrubTime}>{clock(position)}</span>
+							<input
+								className={css.transportRange}
+								type="range"
+								min={0}
+								max={Math.floor(duration)}
+								step={1}
+								value={Math.min(position, Math.floor(duration))}
+								aria-label="Seek"
+								onChange={(e) => onSeek(Number(e.target.value))}
+							/>
+							<span className={css.scrubTime}>{clock(duration)}</span>
+
+							<button
+								type="button"
+								className={css.skip}
+								onClick={() =>
+									onSeek(Math.min(Math.floor(duration), position + SKIP))
+								}
+								title={`Forward ${SKIP} seconds`}
+								aria-label={`Forward ${SKIP} seconds`}
+							>
+								{`+ ${SKIP}s`}
+							</button>
+						</div>
+					) : null}
 				</div>
 			</article>
 
-			{show.tracklist && show.tracklist.length > 0 ? (
-				<section className={css.tracklist}>
-					<h2 className={css.heading}>Tracklist</h2>
-					{show.tracklist.map(function (track, i) {
-						return (
-							<div key={`${track.artist}-${track.title}-${i}`} className={css.row}>
-								<span className={css.rowIndex}>
-									{String(i + 1).padStart(2, "0")}
-								</span>
-								<span className={css.rowName}>
-									{track.artist ? `${track.artist} - ` : ""}
-									{track.title}
-								</span>
-								<CopyTrack
-									text={
-										track.artist ? `${track.artist} - ${track.title}` : track.title
-									}
-								/>
-							</div>
-						)
-					})}
-				</section>
-			) : null}
+			<Tracklist tracks={show.tracklist} />
 		</>
 	)
 }
@@ -1609,6 +1682,10 @@ type FullProps = {
 	// While a device holds the stream nothing is decoded here, so any statement
 	// about the local output would describe a path the audio is not taking.
 	casting: boolean
+	// The archive show playing, if one is. An archive show comes from an embedded
+	// player rather than a stream, so the stream diagnostics describe nothing
+	// that is happening: its tracklist is what there is to say about it.
+	archive: ArchiveShow | null
 	status: PlayerStatus
 	playing: boolean
 	volume: number
@@ -1640,6 +1717,7 @@ export function FullScreen(props: FullProps) {
 		onCancelSleep,
 		outputSampleRate,
 		casting,
+		archive,
 		status,
 		playing,
 		volume,
@@ -1731,28 +1809,35 @@ export function FullScreen(props: FullProps) {
 						/>
 					</div>
 
-					<StreamPanel
-						probe={probe}
-						loading={probeLoading}
-						health={health}
-						status={status}
-						detailed={detailed}
-						onDetailed={onDetailed}
-						outputs={outputs}
-						outputDevice={outputDevice}
-						onOutputDevice={onOutputDevice}
-						onRefreshOutputs={onRefreshOutputs}
-						mixtapeFormat={mixtapeFormat}
-						onMixtapeFormat={onMixtapeFormat}
-						canChooseFormat={canChooseFormat}
-						liveDelivery={liveDelivery}
-						onLiveDelivery={onLiveDelivery}
-						sleepRemaining={sleepRemaining}
-						onSleep={onSleep}
-						onCancelSleep={onCancelSleep}
-						outputSampleRate={outputSampleRate}
-						casting={casting}
-					/>
+					{/* An archive show has no stream to report on. Its tracklist is the
+					    thing worth having here, and it is the same one the details
+					    screen shows rather than a second copy. */}
+					{archive ? (
+						<Tracklist tracks={archive.tracklist} />
+					) : (
+						<StreamPanel
+							probe={probe}
+							loading={probeLoading}
+							health={health}
+							status={status}
+							detailed={detailed}
+							onDetailed={onDetailed}
+							outputs={outputs}
+							outputDevice={outputDevice}
+							onOutputDevice={onOutputDevice}
+							onRefreshOutputs={onRefreshOutputs}
+							mixtapeFormat={mixtapeFormat}
+							onMixtapeFormat={onMixtapeFormat}
+							canChooseFormat={canChooseFormat}
+							liveDelivery={liveDelivery}
+							onLiveDelivery={onLiveDelivery}
+							sleepRemaining={sleepRemaining}
+							onSleep={onSleep}
+							onCancelSleep={onCancelSleep}
+							outputSampleRate={outputSampleRate}
+							casting={casting}
+						/>
+					)}
 				</div>
 			</div>
 		</div>
@@ -1774,6 +1859,9 @@ type BarProps = {
 	position: number
 	duration: number
 	onSeek: (seconds: number) => void
+	// Given only when there is a page to go to, which is archive shows. A live
+	// channel is already the thing on screen.
+	onOpenPlaying?: () => void
 	// Overrides the word for the current state. An archive show waiting on an
 	// embedded player is loading rather than connecting: there is no stream to
 	// connect to, and the distinction is the app's own elsewhere.
@@ -2107,6 +2195,7 @@ export function NowPlayingBar(props: BarProps) {
 		position,
 		duration,
 		onSeek,
+		onOpenPlaying,
 		statusLabel,
 		onToggle,
 		onVolume,
@@ -2157,7 +2246,18 @@ export function NowPlayingBar(props: BarProps) {
 				</span>
 			</button>
 			<div className={css.barText}>
-				<div className={css.barTitle}>{title}</div>
+				{onOpenPlaying ? (
+					<button
+						type="button"
+						className={classnames(css.barTitle, css.barTitleLink)}
+						onClick={onOpenPlaying}
+						title="Open this show"
+					>
+						{title}
+					</button>
+				) : (
+					<div className={css.barTitle}>{title}</div>
+				)}
 				<div className={css.barSub}>{subtitle}</div>
 			</div>
 			{/* Only for something with an end. A live stream has no length, so this
