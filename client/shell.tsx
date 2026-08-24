@@ -984,6 +984,8 @@ type ArchiveProps = {
 	// explore tile, or a pasted link.
 	backLabel: string
 	onBack: () => void
+	// Asked for, but the embedded player has not reported back yet.
+	starting: boolean
 	playing: boolean
 	onToggle: () => void
 	onOriginal: (url: string) => void
@@ -1029,7 +1031,7 @@ function CopyTrack(props: { text: string }) {
 }
 
 export function ArchiveView(props: ArchiveProps) {
-	const { show, playing, onToggle, onOriginal, backLabel, onBack } = props
+	const { show, playing, starting, onToggle, onOriginal, backLabel, onBack } = props
 
 	if (!show) {
 		return <p className={css.empty}>No archive show loaded. Find one in Search.</p>
@@ -1057,7 +1059,10 @@ export function ArchiveView(props: ArchiveProps) {
 					<div className={css.cardActions}>
 						<button
 							type="button"
-							className={classnames(css.button, { [css.buttonActive]: playing })}
+							className={classnames(css.button, {
+								[css.buttonActive]: playing,
+								[css.buttonWaiting]: starting,
+							})}
 							onClick={onToggle}
 						>
 							{playing ? "Stop" : "Play"}
@@ -2195,7 +2200,15 @@ export function NowPlayingBar(props: BarProps) {
 				})}
 			</div>
 
-			<button type="button" className={css.button} onClick={onToggle}>
+			{/* Pulses while something has been asked for but has not started. The
+			    label still says Stop, because stopping is still what it does. */}
+			<button
+				type="button"
+				className={classnames(css.button, {
+					[css.buttonWaiting]: playing && status === "connecting",
+				})}
+				onClick={onToggle}
+			>
 				{playing ? "Stop" : "Play"}
 			</button>
 

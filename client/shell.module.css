@@ -308,6 +308,25 @@
 	border-color: var(--nts-text-faint);
 }
 
+/* Something was asked for and has not begun yet. An embedded player can take
+   several seconds to load, and a transport that looks settled throughout reads
+   as though the click was ignored. */
+.buttonWaiting {
+	animation: waiting 1200ms ease-in-out infinite;
+}
+
+@keyframes waiting {
+	0% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.45;
+	}
+	100% {
+		opacity: 1;
+	}
+}
+
 .buttonActive {
 	background: var(--nts-red);
 	border-color: var(--nts-red);

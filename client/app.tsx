@@ -124,7 +124,12 @@ export function NTS() {
 	// loaded yet, which is what the scrub bar keys off.
 	const [duration, setDuration] = useState(0)
 	const [looped, setLooped] = useState(0)
+	// What was asked for. Drives the embedded player.
 	const [archivePlaying, setArchivePlaying] = useState(false)
+	// What the embedded player reports back. The two differ for the seconds an
+	// iframe takes to load and start, which is long enough that claiming to be
+	// playing throughout reads as the app having ignored the click.
+	const [archiveLive, setArchiveLive] = useState(false)
 	const [isShowingHelp, setIsShowingHelp] = useState(false)
 	const [isFullScreen, setIsFullScreen] = useState(false)
 	const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null)
@@ -197,6 +202,7 @@ export function NTS() {
 	const stop = useCallback(function () {
 		setActive(null)
 		setArchivePlaying(false)
+		setArchiveLive(false)
 	}, [])
 
 	const toggle = useCallback(
@@ -461,11 +467,18 @@ export function NTS() {
 	// status would read "idle" and look broken. The device's own state is the
 	// truthful answer to "is this playing", and it maps onto the same vocabulary
 	// the status dot and label already speak.
+	// One vocabulary for three transports. An archive show that has been asked
+	// for but has not reported back is "connecting", exactly as a stream that has
+	// not begun is, so the dot and the label already know what to do with it.
 	const displayStatus: PlayerStatus = armed
 		? castState.status === "buffering"
 			? "connecting"
 			: castState.status
-		: status
+		: archivePlaying
+			? archiveLive
+				? "playing"
+				: "connecting"
+			: status
 
 	// Opening the cast menu is the first point at which browsing the network is
 	// justified, since that is when someone is actually looking for a device.
@@ -544,7 +557,12 @@ export function NTS() {
 	const toggleArchive = useCallback(
 		function () {
 			if (viewingPlayingShow) {
-				setArchivePlaying((x) => !x)
+				setArchivePlaying(function (on) {
+					if (on) {
+						setArchiveLive(false)
+					}
+					return !on
+				})
 				return
 			}
 			// A different show: hand the player over to it, and start from the top
@@ -554,6 +572,7 @@ export function NTS() {
 			setPosition(0)
 			setDuration(0)
 			setLooped(0)
+			setArchiveLive(false)
 			setArchivePlaying(true)
 		},
 		[show, viewingPlayingShow],
@@ -776,6 +795,7 @@ export function NTS() {
 							backLabel={BACK_LABELS[cameFrom]}
 							onBack={() => setView(cameFrom)}
 							playing={archivePlaying && viewingPlayingShow}
+							starting={viewingPlayingShow && archivePlaying && !archiveLive}
 							onToggle={toggleArchive}
 							onOriginal={(url) => electron.send("open-external", url)}
 						/>
@@ -865,8 +885,8 @@ export function NTS() {
 					key={`${playingShow?.source?.url}_${looped}_mixcloud`}
 					show={playingShow}
 					playing={archivePlaying}
-					onPlay={() => setArchivePlaying(true)}
-					onStop={() => setArchivePlaying(false)}
+					onPlay={() => setArchiveLive(true)}
+					onStop={() => setArchiveLive(false)}
 					onLoad={setDuration}
 					onProgress={(pos: number) => setPosition(Math.round(pos))}
 					position={position}
@@ -878,8 +898,8 @@ export function NTS() {
 					key={`${playingShow?.source?.url}_soundcloud`}
 					show={playingShow}
 					playing={archivePlaying}
-					onPlay={() => setArchivePlaying(true)}
-					onStop={() => setArchivePlaying(false)}
+					onPlay={() => setArchiveLive(true)}
+					onStop={() => setArchiveLive(false)}
 					onLoad={setDuration}
 					onProgress={(pos: number) => setPosition(Math.round(pos))}
 					position={position}
