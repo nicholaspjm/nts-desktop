@@ -189,17 +189,26 @@ export function NTS() {
 
 	const stop = useCallback(function () {
 		setActive(null)
+		setArchivePlaying(false)
 	}, [])
 
 	const toggle = useCallback(
 		function () {
+			// Archive shows play through the embedded players rather than the
+			// stream, so they are invisible to `active` and have to be checked
+			// separately. Without this the transport starts channel 1 over the top
+			// of a show that is already playing.
+			if (archivePlaying) {
+				setArchivePlaying(false)
+				return
+			}
 			if (active) {
 				stop()
 				return
 			}
 			play({ kind: "channel", id: 1 })
 		},
-		[active, play, stop],
+		[active, archivePlaying, play, stop],
 	)
 
 	const toggleChannel = useCallback(
@@ -302,8 +311,16 @@ export function NTS() {
 	// you came from rather than stranding you on a view with no exit.
 	const [cameFrom, setCameFrom] = useState<View>("search")
 
+	// Read through a ref because useEvent registers its handler once, so a
+	// handler closing over `view` would see it as it was on the first render,
+	// which is always "live". That is why the way back said Live wherever you
+	// had actually come from.
+	const viewRef = useRef(view)
+	viewRef.current = view
+
 	useEvent("open-show", async function (next: ArchiveShow) {
-		setCameFrom((prev) => (view === "archive" ? prev : view))
+		const from = viewRef.current
+		setCameFrom((prev) => (from === "archive" ? prev : from))
 		setShow(next)
 		setActive(null)
 		// Land on the details rather than starting playback: the user asked for
@@ -721,7 +738,7 @@ export function NTS() {
 					now={now}
 					probe={streamInfo.probe}
 					status={displayStatus}
-					playing={Boolean(active)}
+					playing={playing}
 					volume={preferences.volume}
 					muted={muted}
 					source={active}
@@ -760,7 +777,7 @@ export function NTS() {
 					outputSampleRate={outputSampleRate}
 					casting={armed}
 					status={displayStatus}
-					playing={Boolean(active)}
+					playing={playing}
 					volume={preferences.volume}
 					onToggle={toggle}
 					onVolume={setVolume}
@@ -776,7 +793,7 @@ export function NTS() {
 					now={now}
 					source={active}
 					status={displayStatus}
-					playing={Boolean(active)}
+					playing={playing}
 					onToggle={toggle}
 					onExpand={toggleMini}
 					onClose={() => handleWindow("close")}
