@@ -430,10 +430,7 @@ type TagsProps = {
  * The full screen view and the live card had grown their own copies of this,
  * with different caps and only one of them showing moods at all, so the same
  * show described itself differently depending on where you looked at it.
- *
- * Not used on the live cards any more: those already carry a description and
- * the times, and the tags pushed the play controls down for information nobody
- * is reading while deciding whether to press play.
+
  *
  * Moods are dimmer than genres on purpose. A genre says what the music is and
  * is worth reading; a mood is NTS's own editorial framing and is closer to a
@@ -487,6 +484,9 @@ export function ChannelCard(props: ChannelCardProps) {
 					) : null}
 				</div>
 				{now?.description ? <p className={css.cardDesc}>{now.description}</p> : null}
+				{now ? (
+					<Tags genres={now.genres} moods={now.moods} maxGenres={4} maxMoods={2} />
+				) : null}
 				<div className={css.cardActions}>
 					<button
 						type="button"
@@ -977,13 +977,18 @@ export function MixtapeDetail(props: MixtapeDetailProps) {
 
 type ArchiveProps = {
 	show: ArchiveShow | null
+	// Where opening this show came from, so the way back is the way in. The
+	// archive is only ever arrived at from somewhere else: a search result, an
+	// explore tile, or a pasted link.
+	backLabel: string
+	onBack: () => void
 	playing: boolean
 	onToggle: () => void
 	onOriginal: (url: string) => void
 }
 
 export function ArchiveView(props: ArchiveProps) {
-	const { show, playing, onToggle, onOriginal } = props
+	const { show, playing, onToggle, onOriginal, backLabel, onBack } = props
 
 	if (!show) {
 		return <p className={css.empty}>No archive show loaded. Find one in Search.</p>
@@ -991,6 +996,9 @@ export function ArchiveView(props: ArchiveProps) {
 
 	return (
 		<>
+			<button type="button" className={css.backLink} onClick={onBack}>
+				← {backLabel}
+			</button>
 			<h1 className={css.heading}>Archive</h1>
 			<article className={css.card}>
 				<div

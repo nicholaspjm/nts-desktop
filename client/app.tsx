@@ -86,6 +86,17 @@ function directFallback(
 	return undefined
 }
 
+// What the archive's back link says, by where the show was opened from.
+const BACK_LABELS: Record<View, string> = {
+	live: "Live",
+	explore: "Explore",
+	mixtapes: "Mixtapes",
+	schedule: "Schedule",
+	search: "Search",
+	history: "History",
+	archive: "Search",
+}
+
 export function App() {
 	return (
 		<>
@@ -287,7 +298,12 @@ export function NTS() {
 	useKeydown("ArrowUp", () => nudgeVolume(0.1), [nudgeVolume])
 	useKeydown("ArrowDown", () => nudgeVolume(-0.1), [nudgeVolume])
 
+	// Remembered when a show is opened, so the archive can send you back where
+	// you came from rather than stranding you on a view with no exit.
+	const [cameFrom, setCameFrom] = useState<View>("search")
+
 	useEvent("open-show", async function (next: ArchiveShow) {
+		setCameFrom((prev) => (view === "archive" ? prev : view))
 		setShow(next)
 		setActive(null)
 		// Land on the details rather than starting playback: the user asked for
@@ -693,6 +709,8 @@ export function NTS() {
 					{view === "archive" ? (
 						<ArchiveView
 							show={show}
+							backLabel={BACK_LABELS[cameFrom]}
+							onBack={() => setView(cameFrom)}
 							playing={archivePlaying}
 							onToggle={() => setArchivePlaying((x) => !x)}
 							onOriginal={(url) => electron.send("open-external", url)}
