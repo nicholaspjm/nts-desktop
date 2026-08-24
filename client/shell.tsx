@@ -1695,6 +1695,9 @@ type FullProps = {
 	// player rather than a stream, so the stream diagnostics describe nothing
 	// that is happening: its tracklist is what there is to say about it.
 	archive: ArchiveShow | null
+	// Opens a URL in the browser. An archive show has two worth offering, its
+	// own NTS page and the host the audio actually plays from.
+	onOpenUrl: (url: string) => void
 	status: PlayerStatus
 	playing: boolean
 	volume: number
@@ -1727,6 +1730,7 @@ export function FullScreen(props: FullProps) {
 		outputSampleRate,
 		casting,
 		archive,
+		onOpenUrl,
 		status,
 		playing,
 		volume,
@@ -1797,6 +1801,27 @@ export function FullScreen(props: FullProps) {
 						<button type="button" className={css.button} onClick={onToggle}>
 							{playing ? "Stop" : "Play"}
 						</button>
+						{/* An archive show has no showAlias here, and two better links:
+						    its own page, and wherever the audio is really hosted. */}
+						{archive?.url ? (
+							<button
+								type="button"
+								className={css.button}
+								onClick={() => onOpenUrl(archive.url)}
+							>
+								Open on NTS
+							</button>
+						) : null}
+						{archive?.source?.url ? (
+							<button
+								type="button"
+								className={css.button}
+								onClick={() => onOpenUrl(archive.source.url)}
+							>
+								Open on{" "}
+								{archive.source.source === "mixcloud" ? "Mixcloud" : "SoundCloud"}
+							</button>
+						) : null}
 						{now.showAlias ? (
 							<button
 								type="button"

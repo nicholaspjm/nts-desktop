@@ -908,6 +908,7 @@ export function NTS() {
 					outputSampleRate={outputSampleRate}
 					casting={armed}
 					archive={archivePlaying ? playingShow : null}
+					onOpenUrl={(url) => electron.send("open-external", url)}
 					status={displayStatus}
 					playing={playing}
 					volume={preferences.volume}
