@@ -1661,3 +1661,21 @@
 	border-color: var(--nts-red);
 	color: var(--nts-text);
 }
+
+/* A recording's progress in the mini player. Sits just above the footer text,
+   full width, and stays a line rather than a control: there is no room to scrub
+   accurately at this size and the rest of the window is a drag handle. */
+.miniProgress {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 2px;
+	background: var(--nts-line);
+	pointer-events: none;
+}
+
+.miniProgressFill {
+	height: 100%;
+	background: var(--nts-red);
+}

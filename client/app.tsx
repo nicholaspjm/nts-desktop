@@ -707,6 +707,20 @@ export function NTS() {
 		setSeek({ to, id: seekId.current })
 	}, [])
 
+	// What to call a recording's state. A recording is not live whatever the
+	// player status says, and the bar, the mini player and full screen should all
+	// use the same word for it. Undefined means this is not a recording, and the
+	// ordinary live vocabulary applies.
+	const recordingStatus = useMemo(
+		function (): string | undefined {
+			if (archivePlaying) {
+				return archiveLive ? "Playing" : "Loading"
+			}
+			return playingShow && !active ? "Paused" : undefined
+		},
+		[archivePlaying, archiveLive, playingShow, active],
+	)
+
 	const now = useMemo(
 		function (): NowPlaying {
 			// Archive shows play through the embedded players and never touch
@@ -961,15 +975,7 @@ export function NTS() {
 								}
 							: undefined
 					}
-					statusLabel={
-						archivePlaying
-							? archiveLive
-								? "Playing"
-								: "Loading"
-							: playingShow && !active
-								? "Paused"
-								: undefined
-					}
+					statusLabel={recordingStatus}
 					paused={Boolean(playingShow) && !active && !archivePlaying}
 					volume={preferences.volume}
 					muted={muted}
@@ -989,6 +995,10 @@ export function NTS() {
 			{isFullScreen ? (
 				<FullScreen
 					now={now}
+					statusLabel={recordingStatus}
+					position={position}
+					duration={duration}
+					onSeek={requestSeek}
 					probe={streamInfo.probe}
 					probeLoading={streamInfo.loading}
 					health={health}
@@ -1026,6 +1036,9 @@ export function NTS() {
 				<MiniPlayer
 					now={now}
 					source={active}
+					statusLabel={recordingStatus}
+					position={position}
+					duration={duration}
 					status={displayStatus}
 					playing={playing}
 					onToggle={toggle}

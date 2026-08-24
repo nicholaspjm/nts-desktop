@@ -1108,6 +1108,67 @@ function Tracklist(props: { tracks: ArchiveShow["tracklist"] }) {
 	)
 }
 
+type TransportProps = {
+	position: number
+	duration: number
+	onSeek: (seconds: number) => void
+}
+
+/**
+ * Skip back, scrub, skip forward.
+ *
+ * Shown for anything with audio, not only once it is playing. The length is
+ * unknown until the player has loaded, which does not happen until playback
+ * starts, so waiting on it meant a recording had no visible transport at all
+ * until after it began. It sits disabled and reading --:-- until the length
+ * arrives, rather than 0:00, which read as a broken control rather than one
+ * waiting on a length.
+ */
+function Transport(props: TransportProps) {
+	const { position, duration, onSeek } = props
+	const unknown = duration === 0
+
+	return (
+		<div className={css.transport}>
+			<button
+				type="button"
+				className={css.skip}
+				disabled={unknown}
+				onClick={() => onSeek(Math.max(0, position - SKIP))}
+				title={`Back ${SKIP} seconds`}
+				aria-label={`Back ${SKIP} seconds`}
+			>
+				{`- ${SKIP}s`}
+			</button>
+
+			<span className={css.scrubTime}>{unknown ? "--:--" : clock(position)}</span>
+			<input
+				className={css.transportRange}
+				type="range"
+				disabled={unknown}
+				min={0}
+				max={Math.max(1, Math.floor(duration))}
+				step={1}
+				value={Math.min(position, Math.floor(duration))}
+				aria-label="Seek"
+				onChange={(e) => onSeek(Number(e.target.value))}
+			/>
+			<span className={css.scrubTime}>{unknown ? "--:--" : clock(duration)}</span>
+
+			<button
+				type="button"
+				className={css.skip}
+				disabled={unknown}
+				onClick={() => onSeek(Math.min(Math.floor(duration), position + SKIP))}
+				title={`Forward ${SKIP} seconds`}
+				aria-label={`Forward ${SKIP} seconds`}
+			>
+				{`+ ${SKIP}s`}
+			</button>
+		</div>
+	)
+}
+
 export function ArchiveView(props: ArchiveProps) {
 	const {
 		show,
@@ -1193,59 +1254,8 @@ export function ArchiveView(props: ArchiveProps) {
 						) : null}
 					</div>
 
-					{/* Shown for anything with audio, not only once it is playing. The
-					    length is unknown until the player has loaded, which does not
-					    happen until playback starts, so waiting on it meant a recording
-					    had no visible transport at all until after it began. It sits
-					    disabled and reading zero until the length arrives. */}
 					{show.source?.url ? (
-						<div className={css.transport}>
-							<button
-								type="button"
-								className={css.skip}
-								disabled={duration === 0}
-								onClick={() => onSeek(Math.max(0, position - SKIP))}
-								title={`Back ${SKIP} seconds`}
-								aria-label={`Back ${SKIP} seconds`}
-							>
-								{`- ${SKIP}s`}
-							</button>
-
-							{/* A show that has not been played has no known length: the
-							    embedded player is what reports it, and it is not built until
-							    playback starts. Reading 0:00 / 0:00 made that look like a
-							    broken control rather than one waiting for a length. */}
-							<span className={css.scrubTime}>
-								{duration === 0 ? "--:--" : clock(position)}
-							</span>
-							<input
-								className={css.transportRange}
-								type="range"
-								disabled={duration === 0}
-								min={0}
-								max={Math.max(1, Math.floor(duration))}
-								step={1}
-								value={Math.min(position, Math.floor(duration))}
-								aria-label="Seek"
-								onChange={(e) => onSeek(Number(e.target.value))}
-							/>
-							<span className={css.scrubTime}>
-								{duration === 0 ? "--:--" : clock(duration)}
-							</span>
-
-							<button
-								type="button"
-								className={css.skip}
-								disabled={duration === 0}
-								onClick={() =>
-									onSeek(Math.min(Math.floor(duration), position + SKIP))
-								}
-								title={`Forward ${SKIP} seconds`}
-								aria-label={`Forward ${SKIP} seconds`}
-							>
-								{`+ ${SKIP}s`}
-							</button>
-						</div>
+						<Transport position={position} duration={duration} onSeek={onSeek} />
 					) : null}
 				</div>
 			</article>
@@ -1760,6 +1770,13 @@ type FullProps = {
 	// player rather than a stream, so the stream diagnostics describe nothing
 	// that is happening: its tracklist is what there is to say about it.
 	archive: ArchiveShow | null
+	// Set only for a recording, and then it is the word to use for its state.
+	statusLabel?: string
+	// Where a recording has got to, and how long it is. Zero length means there
+	// is nothing to scrub: a live channel or a mixtape has no end.
+	position: number
+	duration: number
+	onSeek: (seconds: number) => void
 	// Opens a URL in the browser. An archive show has two worth offering, its
 	// own NTS page and the host the audio actually plays from.
 	onOpenUrl: (url: string) => void
@@ -1775,6 +1792,10 @@ type FullProps = {
 export function FullScreen(props: FullProps) {
 	const {
 		now,
+		statusLabel,
+		position,
+		duration,
+		onSeek,
 		probe,
 		probeLoading,
 		health,
@@ -1849,7 +1870,7 @@ export function FullScreen(props: FullProps) {
 				<div className={css.fullInfo}>
 					<div className={css.fullStatus}>
 						<StatusDot status={status} />
-						{STATUS_LABEL[status]}
+						{statusLabel ?? STATUS_LABEL[status]}
 					</div>
 					<h1 className={css.fullTitle}>{now.title}</h1>
 					<div className={css.fullMeta}>
@@ -1909,6 +1930,13 @@ export function FullScreen(props: FullProps) {
 							onChange={(e) => onVolume(Number(e.target.value))}
 						/>
 					</div>
+
+					{/* Only a recording has an end to scrub towards. A live channel and a
+					    mixtape run on, so the transport stays out of the way entirely
+					    rather than sitting there disabled. */}
+					{duration > 0 ? (
+						<Transport position={position} duration={duration} onSeek={onSeek} />
+					) : null}
 
 					{/* An archive show has no stream to report on. Its tracklist is the
 					    thing worth having here, and it is the same one the details
@@ -2167,6 +2195,12 @@ export function CastButton(props: CastButtonProps) {
 type MiniProps = {
 	now: NowPlaying
 	source: Source | null
+	// A recording's progress. Zero length means a live channel or a mixtape,
+	// which has no end to count towards.
+	position: number
+	duration: number
+	// Set only for a recording, and then it is the word to use for its state.
+	statusLabel?: string
 	status: PlayerStatus
 	playing: boolean
 	onToggle: () => void
@@ -2197,13 +2231,36 @@ function miniTime(date: Date | null): string {
  * The strip is the drag handle, since this mode has no title bar.
  */
 export function MiniPlayer(props: MiniProps) {
-	const { now, source, status, playing, onToggle, onExpand, onClose } = props
+	const {
+		now,
+		source,
+		position,
+		duration,
+		statusLabel,
+		status,
+		playing,
+		onToggle,
+		onExpand,
+		onClose,
+	} = props
 
 	// The original always had a channel number to print. A mixtape has none, so
 	// it gets the play control on its own rather than a made-up digit.
 	const channel = source?.kind === "channel" ? String(source.id) : ""
-	const times =
-		now.starts && now.ends ? `${miniTime(now.starts)} – ${miniTime(now.ends)}` : ""
+
+	// Only a recording has a length. Everything else here runs on, so the
+	// broadcast window is the only time worth printing for it.
+	const recording = duration > 0
+	const times = recording
+		? `${clock(position)} / ${clock(duration)}`
+		: now.starts && now.ends
+			? `${miniTime(now.starts)} – ${miniTime(now.ends)}`
+			: ""
+	// A recording is not live, and saying so over a show from the archive was
+	// simply wrong: the status alone reads "Live" while a recording plays. The
+	// red dot goes with it, since that is exactly what the dot means.
+	const label =
+		statusLabel ?? (status === "playing" ? "Live Now" : STATUS_LABEL[status])
 
 	return (
 		<div className={classnames(css.mini, { [css.miniPlaying]: playing })}>
@@ -2225,8 +2282,8 @@ export function MiniPlayer(props: MiniProps) {
 				</div>
 				<div>
 					<div className={css.miniLive}>
-						{status === "playing" ? "Live Now" : STATUS_LABEL[status]}
-						<span className={css.miniDot}>●</span>
+						{label}
+						{statusLabel ? null : <span className={css.miniDot}>●</span>}
 					</div>
 					<div>{times}</div>
 				</div>
@@ -2266,6 +2323,21 @@ export function MiniPlayer(props: MiniProps) {
 					</svg>
 				</button>
 			</div>
+
+			{/* A recording has somewhere to get to, and the mini player had no way of
+			    showing it. Deliberately a bare line rather than a control: there is
+			    no room to scrub accurately at this size, and the window is draggable
+			    everywhere else. */}
+			{recording ? (
+				<div className={css.miniProgress}>
+					<div
+						className={css.miniProgressFill}
+						style={{
+							width: `${Math.min(100, (position / duration) * 100)}%`,
+						}}
+					/>
+				</div>
+			) : null}
 
 			<div className={css.miniFooter}>
 				<div className={css.miniLocation}>{now.location}</div>
