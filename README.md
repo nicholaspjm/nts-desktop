@@ -185,6 +185,33 @@ serves them and stay theirs.
 | A single archive show | `www.nts.live/api/v2/shows/…` |
 | Audio | `stream-relay-geo.ntslive.net`, `stream-mixtape-geo.ntslive.net`, and the `radiomast.io` CDN they redirect to |
 
+### Why there is no live track title from the stream
+
+Worth writing down, because the stream looks like it should carry one. The live
+channels and the mixtapes do offer an ICY metadata channel: they answer
+`Icy-MetaData: 1` with `icy-metaint: 16384`, and the CDN even lists that header
+in `Access-Control-Expose-Headers`, so the app could read it without anything
+special.
+
+It is empty. Every block is `StreamTitle='';json='{}';`, and four minutes of
+listening to channel 1 produced no populated block at all. The mixtapes are the
+same. So the channel is there and NTS simply do not put anything in it, which is
+theirs to decide. The HLS variant carries nothing either, being plain MP3
+segments under standard tags, and the CDN is Rocket Streaming Audio Server
+rather than Icecast, so there is no `status-json.xsl` to ask.
+
+The ICY response headers are used, for the bitrate, sample rate and station name
+shown in the stream details. The app asks for `Icy-MetaData: 0` when probing, so
+metadata cannot land in the middle of the audio frames it is decoding.
+
+The headers do name an origin server behind the CDN. The app does not touch it
+and should not: it would take traffic off the CDN NTS pay for and put it on the
+machine feeding it.
+
+The live tracklist the app can show comes from the same place the website's does,
+which needs an NTS Supporter account, and without those credentials the app runs
+without it.
+
 ## Licence
 
 MIT, inherited from the upstream project. See [LICENSE](./LICENSE).
