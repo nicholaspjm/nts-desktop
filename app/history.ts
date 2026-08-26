@@ -56,12 +56,16 @@ const queue = serialise((err) =>
 	diagnostics.record("history write failed", String(err)),
 )
 
-export async function add(entry: Omit<Entry, "at"> & { at?: string }) {
+/** Returns whether anything was written, so callers can skip announcing a no-op. */
+export async function add(
+	entry: Omit<Entry, "at"> & { at?: string },
+): Promise<boolean> {
 	// Stamped here rather than inside the queue, so an entry is timed by when it
 	// was played rather than by when its turn to be written came up.
 	const next: Entry = { ...entry, at: entry.at ?? new Date().toISOString() }
 
-	return queue(async function () {
+	let added = false
+	await queue(async function () {
 		const history = await read()
 
 		// Don't record the same thing twice in a row: switching away and back, or
@@ -74,7 +78,10 @@ export async function add(entry: Omit<Entry, "at"> & { at?: string }) {
 		}
 
 		await write([next, ...history])
+		added = true
 	})
+
+	return added
 }
 
 export async function clear(): Promise<void> {

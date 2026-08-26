@@ -233,15 +233,22 @@ export class NTSApplication {
 		// is actually playing.
 		ipcMain.on(
 			"history-add",
-			(_evt: IpcMainEvent, entry: { name: string; kind: string; detail?: string }) =>
-				history.add({
+			async (
+				_evt: IpcMainEvent,
+				entry: { name: string; kind: string; detail?: string },
+			) => {
+				const added = await history.add({
 					name: entry.name,
 					kind:
 						entry.kind === "mixtape" || entry.kind === "channel"
 							? entry.kind
 							: "archive",
 					detail: entry.detail,
-				}),
+				})
+				if (added) {
+					this.send("history-changed", null)
+				}
+			},
 		)
 		ipcMain.handle("history", () => history.read())
 		ipcMain.on("history-clear", () => history.clear())
@@ -575,7 +582,13 @@ export class NTSApplication {
 		// Deliberately after the staleness check. History is a record of what the
 		// user actually opened, and an abandoned show that lost the race was never
 		// looked at.
-		history.add({ name: data.name, kind: "archive", url })
+		// Announced rather than assumed: an archive show is recorded here in the
+		// main process, and the renderer has no other way to know the list moved.
+		// It cannot work it out from what is playing either, since an archive show
+		// never touches `active`.
+		if (await history.add({ name: data.name, kind: "archive", url })) {
+			this.send("history-changed", null)
+		}
 		this.send("open-show", data)
 	}
 

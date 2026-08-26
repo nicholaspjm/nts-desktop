@@ -325,10 +325,19 @@ export function NTS() {
 						: `NTS ${active.id}`,
 				})
 			}
-			setHistoryKey((k) => k + 1)
 		},
 		[active, mixtape, live.data],
 	)
+
+	// Re-read when the list has actually changed, rather than when something was
+	// merely asked for. This used to bump the key straight after sending, which
+	// reads the file back before the main process has written to it, and it never
+	// fired at all for an archive show: those are recorded in the main process
+	// and never touch `active`, so the effect above returns before reaching it.
+	// That is why four mixes played in a row landed on disk and not on screen.
+	useEvent("history-changed", function () {
+		setHistoryKey((k) => k + 1)
+	})
 
 	// Drives the tray icon in the main process.
 	useEffect(
