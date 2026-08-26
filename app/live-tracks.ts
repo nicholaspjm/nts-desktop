@@ -81,6 +81,10 @@ export class NTSLiveTracks {
 
 	promises: { [creds: string]: Promise<UserCredential> } = {}
 	unsubscribe: null | (() => void)
+	// Bumped by every subscribe and every stop. Setting up a subscription takes
+	// two awaits, and whatever happens during them decides whether the result is
+	// still wanted.
+	private generation = 0
 	previous: {
 		stream1: LiveTrack[]
 		stream2: LiveTrack[]
@@ -118,10 +122,24 @@ export class NTSLiveTracks {
 		await credentials.clear()
 	}
 
+	/**
+	 * Subscribes to both channels' live tracklists.
+	 *
+	 * Called on every window open, which is why the bookkeeping matters. It used
+	 * to assign over `this.unsubscribe` without calling what was already there,
+	 * so each open added two more Firestore listeners and threw away the only
+	 * handle that could have stopped the previous pair. They kept firing, kept
+	 * writing `previous`, and which of the duplicates won was down to callback
+	 * order.
+	 */
 	async subscribe() {
 		if (!available) {
 			return
 		}
+
+		// Whatever is already running is replaced rather than abandoned.
+		this.stop()
+		const generation = this.generation
 
 		const strm1 = await liveTracks(1, (err, res) => {
 			if (err) {
@@ -149,11 +167,32 @@ export class NTSLiveTracks {
 			this.webContents.send("live-tracks-2", res)
 		})
 
+		// A stop() or a newer subscribe() landed while those two awaits were out,
+		// so these belong to nobody. Closing the window used to leave them running
+		// because the assignment below arrived after the close had already run.
+		if (generation !== this.generation) {
+			strm1()
+			strm2()
+			return
+		}
+
 		this.unsubscribe = () => {
 			this.unsubscribe = null
 			strm1()
 			strm2()
 		}
+	}
+
+	/**
+	 * Ends any subscription, including one still being set up.
+	 *
+	 * The generation bump is the half that covers the in-flight case: there is no
+	 * handle to call yet, so the only way to stop it is to make it discard itself
+	 * when it finishes.
+	 */
+	stop() {
+		this.generation += 1
+		this.unsubscribe?.()
 	}
 
 	async sync() {

@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs"
 import path from "node:path"
 import { app } from "electron"
 
+import { writeJson } from "./atomic"
 import * as diagnostics from "./diagnostics"
 
 export type Preferences = {
@@ -55,16 +56,7 @@ export async function read(): Promise<Preferences> {
 }
 
 export async function write(preferences: Preferences): Promise<void> {
-	const content = JSON.stringify(preferences)
-	// Written beside the real file and moved into place, because writeFile
-	// truncates first: a crash or an overlapping write in that gap leaves a
-	// half-written file, and a preferences file that will not parse loses the
-	// output device, the follow list and everything else at once. A rename is
-	// atomic on the same filesystem, so a reader sees either the old file or the
-	// new one and never a torn one.
-	const temp = `${filename}.${process.pid}.tmp`
-	await fs.writeFile(temp, content)
-	await fs.rename(temp, filename)
+	await writeJson(filename, preferences)
 }
 
 export async function clear(): Promise<void> {

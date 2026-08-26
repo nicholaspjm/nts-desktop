@@ -2,6 +2,9 @@ import { promises as fs } from "node:fs"
 import path from "node:path"
 import { app } from "electron"
 
+import { serialise, writeJson } from "./atomic"
+import * as diagnostics from "./diagnostics"
+
 export type Entry = {
 	name: string
 	// What was played. "archive" entries carry the show URL so they can be
@@ -43,21 +46,35 @@ export async function read(): Promise<History> {
 }
 
 async function write(history: History): Promise<void> {
-	await fs.writeFile(filename, JSON.stringify(history.slice(0, LIMIT)))
+	await writeJson(filename, history.slice(0, LIMIT))
 }
 
+// Adds run one at a time. Two of them overlapping both read the same list and
+// both prepend to it, so the second write drops whatever the first added: a
+// listen disappears from history entirely.
+const queue = serialise((err) =>
+	diagnostics.record("history write failed", String(err)),
+)
+
 export async function add(entry: Omit<Entry, "at"> & { at?: string }) {
-	const history = await read()
+	// Stamped here rather than inside the queue, so an entry is timed by when it
+	// was played rather than by when its turn to be written came up.
 	const next: Entry = { ...entry, at: entry.at ?? new Date().toISOString() }
 
-	// Don't record the same thing twice in a row: switching away and back, or a
-	// reconnect, should not fill the list with duplicates.
-	const [first] = history
-	if (first && first.name === next.name && first.kind === next.kind) {
-		return
-	}
+	return queue(async function () {
+		const history = await read()
 
-	await write([next, ...history])
+		// Don't record the same thing twice in a row: switching away and back, or
+		// a reconnect, should not fill the list with duplicates. Checked inside
+		// the queue, against what is actually on disk, so two adds of the same
+		// thing cannot both pass the check and both write.
+		const [first] = history
+		if (first && first.name === next.name && first.kind === next.kind) {
+			return
+		}
+
+		await write([next, ...history])
+	})
 }
 
 export async function clear(): Promise<void> {

@@ -19,6 +19,7 @@ import {
 } from "electron"
 import serve from "electron-serve"
 
+import { serialise } from "./atomic"
 import { type CastDevice, CastDiscovery, type CastMedia, CastSession } from "./cast"
 import * as credentials from "./credentials"
 import * as diagnostics from "./diagnostics"
@@ -59,7 +60,9 @@ export class NTSApplication {
 	// Bumped per open so a slow show cannot land after a newer one was asked for.
 	private openRequest = 0
 	// Preference writes queue behind each other rather than racing on one file.
-	private preferenceWrites: Promise<void> = Promise.resolve()
+	private preferenceWrites = serialise((err) =>
+		diagnostics.record("preferences write failed", String(err)),
+	)
 	// The label of the chosen output device. A label rather than an id because
 	// the players are cross-origin and ids do not survive that boundary.
 	private outputLabel = ""
@@ -461,7 +464,7 @@ export class NTSApplication {
 	close() {
 		this.window.webContents.send("close")
 		setTimeout(() => this.window.hide(), 10)
-		this.liveTracks.unsubscribe?.()
+		this.liveTracks.stop()
 	}
 
 	handlePlaying(_evt: IpcMainEvent, channel: 1 | 2 | string | null) {
@@ -637,25 +640,14 @@ export class NTSApplication {
 	 * through, and two writes overlapping could leave the file unparseable, which
 	 * silently reset every setting.
 	 *
-	 * Chaining onto the previous one keeps them in order. Failures are swallowed
-	 * deliberately, since a rejected link would otherwise poison every write
-	 * after it.
+	 * Chaining onto the previous one keeps them in order. A failure is recorded
+	 * rather than thrown, since rejecting would poison every write after it.
 	 */
 	storePreferences(prefs: Partial<preferences.Preferences>): Promise<void> {
-		async function apply() {
+		return this.preferenceWrites(async function () {
 			const old = await preferences.read()
 			await preferences.write({ ...old, ...prefs })
-		}
-
-		// Passed as both handlers so one failed write does not stop the next from
-		// being attempted, and caught so the chain itself never settles rejected,
-		// which would surface as an unhandled rejection on every later write.
-		this.preferenceWrites = this.preferenceWrites
-			.then(apply, apply)
-			.catch(function (err) {
-				diagnostics.record("preferences write failed", String(err))
-			})
-		return this.preferenceWrites
+		})
 	}
 }
 

@@ -61,7 +61,19 @@ export function Mixcloud(props: Props) {
 					w.events.ended.on(onStop)
 					w.events.progress.on(onProgress)
 					bound = true
-					w.getDuration().then((duration) => onLoad(duration))
+					// Guarded like the binding above it. This component is keyed on the
+					// show, so switching shows builds a new one while this call is still
+					// out, and an unguarded answer sets the previous show's length on the
+					// current one: a thirty minute mix inherits a two hour scrub bar and
+					// seeking lands proportionally wrong.
+					w.getDuration()
+						.then(function (duration) {
+							if (cancelled) {
+								return
+							}
+							onLoad(duration)
+						})
+						.catch(() => {})
 					setWidget(w)
 				})
 				.catch((err) => console.error(err))

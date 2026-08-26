@@ -177,18 +177,26 @@ export function useLiveInfo(options: Options): InfoState {
 
 	const load = useCallback(async function () {
 		abort.current?.abort()
-		abort.current = new AbortController()
+		// Held locally rather than read back off the ref. Both checks below used
+		// to test abort.current, which by then is whichever controller the NEWEST
+		// call installed, not this one. So a superseded load saw "not aborted",
+		// fell through, and wrote its own outcome over a load still in flight:
+		// the splash would disappear onto an empty live view and an AbortError
+		// would be recorded although nothing had actually failed. Two loads at
+		// once is routine, since opening the window starts one.
+		const controller = new AbortController()
+		abort.current = controller
 
 		setState((state) => ({ ...state, loading: true, error: null }))
 
 		try {
-			const data = await live({ signal: abort.current.signal })
-			if (abort.current.signal.aborted) {
+			const data = await live({ signal: controller.signal })
+			if (controller.signal.aborted) {
 				return
 			}
 			setState({ loading: false, data, error: null })
 		} catch (err) {
-			if (abort.current?.signal.aborted) {
+			if (controller.signal.aborted) {
 				return
 			}
 			// Keep whatever we last had on screen rather than blanking the app.
